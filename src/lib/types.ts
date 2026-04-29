@@ -73,5 +73,7 @@ export interface AppData {
   teacherProfiles?: Record<string, {
     isHoD: boolean;
     department?: string;
+    hodSubjects?: string[];
+    hodGrades?: string[];
   }>;
 }

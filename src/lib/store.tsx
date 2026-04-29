@@ -40,7 +40,7 @@ export interface AppContextType {
   deleteClass: (grade: string, className: string) => void;
   renameGrade: (oldName: string, newName: string) => void;
   renameClass: (grade: string, oldName: string, newName: string) => void;
-  setTeacherProfile: (teacherId: string, profile: { isHoD?: boolean; department?: string }) => void;
+  setTeacherProfile: (teacherId: string, profile: { isHoD?: boolean; department?: string; hodSubjects?: string[]; hodGrades?: string[] }) => void;
   importSchoolData: (jsonData: string) => boolean;
 }
 
@@ -182,7 +182,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         save(d);
       }
     },
-    setTeacherProfile: (teacherId: string, profile: { isHoD?: boolean; department?: string }) => {
+    setTeacherProfile: (teacherId: string, profile: { isHoD?: boolean; department?: string; hodSubjects?: string[]; hodGrades?: string[] }) => {
       const d = structuredClone(data);
       if (!d.teacherProfiles) d.teacherProfiles = {};
       d.teacherProfiles[teacherId] = {

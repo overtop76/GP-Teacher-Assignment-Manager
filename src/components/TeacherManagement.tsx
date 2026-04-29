@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import { useAuthStore } from '@/lib/authStore';
-import { BadgeCheck, GraduationCap, X, Check } from 'lucide-react';
+import { BadgeCheck, GraduationCap, X, Check, Edit2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { GRADE_LABELS } from '@/lib/types';
 
 export default function TeacherManagement() {
   const { data, setTeacherProfile } = useAppStore();
   const { currentUser } = useAuthStore();
   const [filterSubject, setFilterSubject] = useState('');
   const [filterType, setFilterType] = useState('all'); // 'all', 'hod', 'only_teacher'
+  const [editingHod, setEditingHod] = useState<string | null>(null);
+  const gradesList = data.gradesOrder || GRADE_LABELS;
   
   const canEdit = currentUser?.permissions.isAdmin; // Only admins can edit HoD? Or maybe anyone with access. Let's say all users with access.
   
@@ -22,6 +25,8 @@ export default function TeacherManagement() {
     classes: Set<string>,
     isHoD: boolean,
     department: string,
+    hodSubjects: string[],
+    hodGrades: string[],
   }> = {};
 
   const teachersList = Object.keys(data.teachers || {});
@@ -36,6 +41,8 @@ export default function TeacherManagement() {
       classes: new Set(),
       isHoD: data.teacherProfiles?.[tId]?.isHoD || false,
       department: data.teacherProfiles?.[tId]?.department || '',
+      hodSubjects: data.teacherProfiles?.[tId]?.hodSubjects || [],
+      hodGrades: data.teacherProfiles?.[tId]?.hodGrades || [],
     };
   });
 
@@ -113,9 +120,70 @@ export default function TeacherManagement() {
     setTeacherProfile(teacherId, { isHoD: !currentVal });
     if (!currentVal) {
       toast.success('Marked as Head of Department');
+      setEditingHod(teacherId);
     } else {
       toast.success('Removed Head of Department role');
+      if (editingHod === teacherId) setEditingHod(null);
     }
+  };
+
+  const HodEditor = ({ t }: { t: any }) => {
+    const [subjs, setSubjs] = useState<string[]>(t.hodSubjects || []);
+    const [grds, setGrds] = useState<string[]>(t.hodGrades || []);
+
+    const toggleSubject = (s: string) => setSubjs(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+    const toggleGrade = (g: string) => setGrds(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]);
+
+    return (
+      <div className="bg-amber-50 rounded-md p-3 border border-amber-200 mt-2 text-xs w-[250px] shadow-sm">
+        <div className="font-semibold text-amber-900 mb-2">Configure HoD Roles</div>
+        
+        <div className="mb-3">
+          <div className="text-amber-700/80 mb-1 font-medium flex justify-between">
+            <span>Subjects</span>
+            <span className="text-[10px] italic">{subjs.length === 0 ? 'All' : `${subjs.length} selected`}</span>
+          </div>
+          <div className="max-h-[150px] overflow-y-auto flex flex-wrap gap-1 p-1 bg-white/50 rounded border border-amber-100">
+            {uniqueSubjectNames.length === 0 && <span className="text-amber-500 p-1">No subjects found</span>}
+            {uniqueSubjectNames.map(s => (
+              <label key={s} className="flex items-center gap-1 bg-white px-1.5 py-0.5 rounded border border-amber-200 cursor-pointer hover:bg-amber-50">
+                <input type="checkbox" checked={subjs.includes(s)} onChange={() => toggleSubject(s)} className="w-3 h-3 text-amber-600 rounded-sm focus:ring-amber-500 border-amber-300" />
+                <span className="text-amber-900">{s}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-3">
+          <div className="text-amber-700/80 mb-1 font-medium flex justify-between">
+            <span>Grades</span>
+            <span className="text-[10px] italic">{grds.length === 0 ? 'All' : `${grds.length} selected`}</span>
+          </div>
+          <div className="max-h-[150px] overflow-y-auto flex flex-wrap gap-1 p-1 bg-white/50 rounded border border-amber-100">
+            {gradesList.map(g => (
+              <label key={g} className="flex items-center gap-1 bg-white px-1.5 py-0.5 rounded border border-amber-200 cursor-pointer hover:bg-amber-50">
+                <input type="checkbox" checked={grds.includes(g)} onChange={() => toggleGrade(g)} className="w-3 h-3 text-amber-600 rounded-sm focus:ring-amber-500 border-amber-300" />
+                <span className="text-amber-900">{g}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 mt-2">
+          <button onClick={() => setEditingHod(null)} className="px-2 py-1 text-amber-600 hover:text-amber-800 transition-colors">Cancel</button>
+          <button 
+            onClick={() => {
+              setTeacherProfile(t.id, { hodSubjects: subjs, hodGrades: grds });
+              setEditingHod(null);
+              toast.success('HoD details saved');
+            }} 
+            className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded font-medium transition-colors"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -166,14 +234,38 @@ export default function TeacherManagement() {
                 <td className="p-4 font-medium text-slate-900">
                   {t.name}
                 </td>
-                <td className="p-4">
-                  <button 
-                    onClick={() => toggleHoD(t.id, t.isHoD)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition-colors ${t.isHoD ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                  >
-                    {t.isHoD ? <BadgeCheck size={14} /> : <GraduationCap size={14} />}
-                    {t.isHoD ? 'HoD' : 'Teacher'}
-                  </button>
+                <td className="p-4 align-top">
+                  <div className="flex flex-col items-start gap-2">
+                    <button 
+                      onClick={() => toggleHoD(t.id, t.isHoD)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition-colors ${t.isHoD ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                    >
+                      {t.isHoD ? <BadgeCheck size={14} /> : <GraduationCap size={14} />}
+                      {t.isHoD ? 'HoD' : 'Teacher'}
+                    </button>
+                    {t.isHoD && (
+                      <div className="w-full relative">
+                        {editingHod === t.id ? (
+                           <HodEditor t={t} />
+                        ) : (
+                           <div className="bg-amber-50 rounded-md p-2 border border-amber-100 text-xs text-amber-800 w-full min-w-[150px] shadow-sm">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="font-semibold">HoD Scope</span>
+                                <button onClick={() => setEditingHod(t.id)} className="text-amber-600 hover:text-amber-800 p-0.5"><Edit2 size={12} /></button>
+                              </div>
+                              <div className="mb-0.5">
+                                 <span className="font-medium text-amber-700/70">Subjects: </span>
+                                 <span className="text-[10px]">{t.hodSubjects?.length > 0 ? t.hodSubjects.join(', ') : 'All Subjects'}</span>
+                              </div>
+                              <div>
+                                 <span className="font-medium text-amber-700/70">Grades: </span>
+                                 <span className="text-[10px]">{t.hodGrades?.length > 0 ? t.hodGrades.join(', ') : 'All Grades'}</span>
+                              </div>
+                           </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </td>
                 <td className="p-4 text-center">
                   <span className={`inline-block px-2.5 py-1 rounded-lg text-sm font-bold ${t.sessions > 0 ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-400'}`}>
