@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '@/lib/authStore';
 import { useAppStore } from '@/lib/store';
-import { User, Plus, Trash2, Edit, Save, X, Shield, Lock, School, Key } from 'lucide-react';
+import { User, Plus, Trash2, Edit, Save, X, Shield, Lock, School, Key, Download } from 'lucide-react';
 import { GRADE_LABELS, UserAccount } from '@/lib/types';
 
 export default function UsersManagement() {
@@ -95,6 +95,48 @@ export default function UsersManagement() {
      setFormData({ ...formData, assignedSchools: list });
   };
 
+  const handleExportUsers = () => {
+    const headers = [
+      'ID',
+      'Username',
+      'Password',
+      'Is Admin',
+      'Assigned Schools',
+      'Can View Grades',
+      'Can Edit Grades',
+      'Can View Sections',
+      'Can Edit Sections',
+      'Can Print/Export'
+    ];
+
+    const rows = systemData.users.map(user => [
+      user.id,
+      user.username,
+      user.passwordText,
+      user.permissions?.isAdmin ? 'Yes' : 'No',
+      (user.assignedSchools || []).join('; '),
+      (user.permissions?.canViewGrades || []).join('; '),
+      (user.permissions?.canEditGrades || []).join('; '),
+      Object.entries(user.permissions?.canViewClasses || {}).map(([g, c]) => `${g}:[${c.join(',')}]`).join('; '),
+      Object.entries(user.permissions?.canEditClasses || {}).map(([g, c]) => `${g}:[${c.join(',')}]`).join('; '),
+      user.permissions?.canPrintExport ? 'Yes' : 'No'
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `system_users_export_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (!currentUser?.permissions.isAdmin) {
       return (
           <div className="p-8 text-center text-slate-500">
@@ -113,12 +155,20 @@ export default function UsersManagement() {
           <p className="text-slate-500 mt-1">Manage admin and staff accounts</p>
         </div>
         {!isCreating && !isEditing && (
-          <button 
-             onClick={handleCreate}
-             className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" /> Add User
-          </button>
+          <div className="flex items-center gap-3">
+             <button 
+                onClick={handleExportUsers}
+                className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2"
+             >
+               <Download className="w-4 h-4" /> Export Users
+             </button>
+             <button 
+                onClick={handleCreate}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2"
+             >
+               <Plus className="w-4 h-4" /> Add User
+             </button>
+          </div>
         )}
       </div>
 
