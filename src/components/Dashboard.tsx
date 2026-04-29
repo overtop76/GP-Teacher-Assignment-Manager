@@ -48,12 +48,18 @@ export default function Dashboard() {
 
   const totalTeachers = allTeachers.size;
 
+  let totalHoDs = 0;
+  Object.values(data.teacherProfiles || {}).forEach((tp: any) => {
+    if (tp.isHoD) totalHoDs++;
+  });
+
   const stats = [
     { icon: <School className="w-5 h-5" />, value: data.schoolName || '—', label: 'School Name' },
     { icon: <Library className="w-5 h-5" />, value: `${configuredGrades}/13`, label: 'Grades Configured' },
     { icon: <Users className="w-5 h-5" />, value: totalClasses, label: 'Class Sections' },
     { icon: <BookOpen className="w-5 h-5" />, value: totalSubjects, label: 'Assignments' },
     { icon: <Presentation className="w-5 h-5" />, value: totalTeachers, label: 'Unique Teachers' },
+    { icon: <Presentation className="w-5 h-5 text-amber-500" />, value: totalHoDs, label: 'Assigned HoDs' },
     { icon: <Hash className="w-5 h-5" />, value: data.nextSubjectId - 1, label: 'Subject IDs' }
   ];
 
@@ -113,7 +119,7 @@ export default function Dashboard() {
           {totalClasses === 0 ? (
             <p className="text-slate-500 text-sm">Start by setting up school name and grade classes in Setup.</p>
           ) : (
-            <p className="text-slate-600 text-sm leading-relaxed">{configuredGrades} grades configured with {totalClasses} classes. Managing {totalSubjects} subjects across {totalTeachers} teachers.</p>
+            <p className="text-slate-600 text-sm leading-relaxed">{configuredGrades} grades configured with {totalClasses} classes. Managing {totalSubjects} subjects across {totalTeachers} teachers ({totalHoDs} Heads of Department).</p>
           )}
         </div>
 
