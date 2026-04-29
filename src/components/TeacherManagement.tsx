@@ -303,6 +303,21 @@ export default function TeacherManagement() {
 
     const availableClasses = grade ? Object.keys(data.gradeLevels[grade]?.classes || {}).sort((a,b)=>a.localeCompare(b)) : [];
     
+    const allSubjects = new Set<string>();
+    Object.values(data.gradeLevels).forEach((g: any) => {
+      Object.values(g.classes || {}).forEach((c: any) => {
+        Object.keys(c.subjects || {}).forEach((subjId: string) => {
+          if (!['FL', 'Art/Music'].includes(subjId)) {
+            const subj = c.subjects[subjId];
+            if (!subj.isElective) {
+              allSubjects.add(subjId);
+            }
+          }
+        });
+      });
+    });
+    const subjectsList = Array.from(allSubjects).sort();
+    
     const handleSave = () => {
       const tName = name.trim();
       if (!tName) return toast.error('Teacher name is required');
@@ -352,7 +367,10 @@ export default function TeacherManagement() {
                <div className="grid grid-cols-2 gap-3">
                  <div>
                    <label className="block text-xs font-semibold text-slate-700 mb-1">Subject</label>
-                   <input type="text" value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Math" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20" />
+                   <input type="text" list="teacher_subject_list" value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Math" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20" />
+                   <datalist id="teacher_subject_list">
+                     {subjectsList.map(s => <option key={s} value={s} />)}
+                   </datalist>
                  </div>
                  <div>
                    <label className="block text-xs font-semibold text-slate-700 mb-1">Sessions per week</label>
