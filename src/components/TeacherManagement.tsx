@@ -133,7 +133,7 @@ export default function TeacherManagement() {
       'HoD Grades': t.isHoD ? (t.hodGrades.length ? t.hodGrades.join(', ') : 'All') : 'N/A',
       'Total Sessions': t.sessions,
       'Subjects Taught': Array.from(t.subjects).join(', ') || 'Unassigned',
-      'Grades Taught': Array.from(t.grades).join(', ') || 'None',
+      'Classes Taught': Array.from(t.classes).join(', ') || 'None',
     }));
     
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -205,12 +205,12 @@ export default function TeacherManagement() {
       t.isHoD ? `HoD\nSubj: ${t.hodSubjects.length ? t.hodSubjects.join(', ') : 'All'}\nGrds: ${t.hodGrades.length ? t.hodGrades.join(', ') : 'All'}` : 'Teacher',
       t.sessions.toString(),
       Array.from(t.subjects).join(', ') || 'Unassigned',
-      Array.from(t.grades).join(', ') || 'None'
+      Array.from(t.classes).join(', ') || 'None'
     ]);
     
     autoTable(doc, {
       startY: 30,
-      head: [['Teacher Name', 'Role & Scope', 'Sessions', 'Subjects Taught', 'Grades Taught']],
+      head: [['Teacher Name', 'Role & Scope', 'Sessions', 'Subjects Taught', 'Classes (Sections) Taught']],
       body: tableData,
       theme: 'grid',
       styles: { fontSize: 8 },
@@ -355,7 +355,7 @@ export default function TeacherManagement() {
               <th className="p-4">Role</th>
               <th className="p-4 text-center">Total Sessions</th>
               <th className="p-4">Subjects Taught</th>
-              <th className="p-4">Grades Taught</th>
+              <th className="p-4">Classes / Sections</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -414,9 +414,9 @@ export default function TeacherManagement() {
                 </td>
                 <td className="p-4">
                   <div className="flex flex-wrap gap-1">
-                    {Array.from(t.grades).map(g => (
-                      <span key={g} className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-xs font-medium">
-                        {g}
+                    {Array.from(t.classes).map(c => (
+                      <span key={c} className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-xs font-medium">
+                        {c}
                       </span>
                     ))}
                   </div>

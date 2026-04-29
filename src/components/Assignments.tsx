@@ -86,7 +86,7 @@ export default function Assignments() {
           Music: subj.subSubjects?.Music?.teacher || ''
         });
       } else if (subj.isElective) {
-        const opts = Object.entries(subj.electives || {}).map(([name, data]) => ({ name, teacher: data.teacher }));
+        const opts = Object.entries(subj.electives || {}).map(([name, data]: [string, any]) => ({ name, teacher: data.teacher }));
         setElectiveOptions(opts.length ? opts : [{name: '', teacher: ''}]);
       } else {
         setTeacher(subj.teacher || '');
@@ -178,8 +178,8 @@ export default function Assignments() {
 
   const allTeachers = Object.keys(data.teachers || {}).sort();
   const allSubjectNames = new Set<string>();
-  Object.values(data.gradeLevels).forEach(g => {
-    Object.values(g.classes || {}).forEach(c => {
+  Object.values(data.gradeLevels).forEach((g: any) => {
+    Object.values(g.classes || {}).forEach((c: any) => {
       Object.entries(c.subjects || {}).forEach(([s, subj]: [string, any]) => {
          if (!['FL', 'Art/Music'].includes(s)) {
              allSubjectNames.add(s);
@@ -197,8 +197,8 @@ export default function Assignments() {
     const target = targetSubject.toLowerCase().trim();
     const teachers = new Set<string>();
     
-    Object.values(data.gradeLevels).forEach(g => {
-      Object.values(g.classes || {}).forEach(c => {
+    Object.values(data.gradeLevels).forEach((g: any) => {
+      Object.values(g.classes || {}).forEach((c: any) => {
         Object.entries(c.subjects || {}).forEach(([sName, subj]: [string, any]) => {
           if (!['FL', 'Art/Music'].includes(sName) && !subj.isElective) {
              if (sName.toLowerCase().trim() === target && subj.teacher) teachers.add(subj.teacher);
