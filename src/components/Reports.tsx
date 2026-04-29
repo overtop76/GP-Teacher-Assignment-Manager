@@ -35,15 +35,26 @@ export default function Reports() {
       currentUser?.permissions.canViewGrades?.includes(g)
   );
 
+  const getVisibleClassesForGrade = (g: string) => {
+    const classes = getClassesForGrade(g);
+    if (isAdmin || hasNoGradeAccessControl) return classes;
+    const canViewList = currentUser?.permissions.canViewClasses?.[g] || [];
+    const canEditList = currentUser?.permissions.canEditClasses?.[g] || [];
+    const hasViewAll = currentUser?.permissions.canViewGrades?.includes(g) && canViewList.length === 0;
+    const hasEditAll = currentUser?.permissions.canEditGrades?.includes(g) && canEditList.length === 0;
+    if (hasViewAll || hasEditAll) return classes;
+    return classes.filter(cls => canViewList.includes(cls) || canEditList.includes(cls));
+  };
+
   const getAllClasses = () => {
     const list: { grade: string, cls: string }[] = [];
-    visibleGrades.forEach(g => getClassesForGrade(g).forEach(cls => list.push({ grade: g, cls })));
+    visibleGrades.forEach(g => getVisibleClassesForGrade(g).forEach(cls => list.push({ grade: g, cls })));
     return list;
   };
 
   const getAllSubjects = () => {
     const set = new Set<string>();
-    visibleGrades.forEach(g => getClassesForGrade(g).forEach(cls => {
+    visibleGrades.forEach(g => getVisibleClassesForGrade(g).forEach(cls => {
       Object.entries(data.gradeLevels[g].classes[cls].subjects || {}).forEach(([subj, d]: [string, any]) => {
         if (d.isFL) {
           set.add('FL — Foreign Languages');
@@ -74,7 +85,7 @@ export default function Reports() {
 
   const getAllTeachers = () => {
     const set = new Set<string>();
-    visibleGrades.forEach(g => getClassesForGrade(g).forEach(cls => {
+    visibleGrades.forEach(g => getVisibleClassesForGrade(g).forEach(cls => {
       Object.entries(data.gradeLevels[g].classes[cls].subjects || {}).forEach(([subj, d]: [string, any]) => {
         if (d.isFL) {
           FL_LANGUAGES.forEach(l => { if (d.languages?.[l]?.teacher) set.add(d.languages[l].teacher); });
@@ -96,7 +107,7 @@ export default function Reports() {
     visibleGrades.forEach(g => {
       if (reportType === 'grade' && reportFilter && g !== reportFilter) return;
       
-      getClassesForGrade(g).forEach(cls => {
+      getVisibleClassesForGrade(g).forEach(cls => {
         if (reportType === 'class' && reportFilter && `${g}|${cls}` !== reportFilter) return;
         
         const subjects = data.gradeLevels[g].classes[cls].subjects || {};
@@ -490,7 +501,7 @@ export default function Reports() {
   };
 
   const getFilterOptions = () => {
-    if (reportType === 'grade') return visibleGrades.filter(g => getClassesForGrade(g).length > 0).map(g => <option key={g} value={g}>Grade {g}</option>);
+    if (reportType === 'grade') return visibleGrades.filter(g => getVisibleClassesForGrade(g).length > 0).map(g => <option key={g} value={g}>Grade {g}</option>);
     if (reportType === 'class') return getAllClasses().map(c => <option key={`${c.grade}|${c.cls}`} value={`${c.grade}|${c.cls}`}>Grade {c.grade} - Class {c.cls}</option>);
     if (reportType === 'subject') return getAllSubjects().map(s => <option key={s} value={s}>{s}</option>);
     if (reportType === 'teacher') return getAllTeachers().map(t => <option key={t} value={t}>{t}</option>);

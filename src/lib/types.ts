@@ -41,6 +41,8 @@ export interface UserPermissions {
   isAdmin?: boolean;
   canEditGrades?: string[];
   canViewGrades?: string[];
+  canEditClasses?: Record<string, string[]>;
+  canViewClasses?: Record<string, string[]>;
   canPrintExport?: boolean;
 }
 

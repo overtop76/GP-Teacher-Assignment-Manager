@@ -224,23 +224,50 @@ export default function UsersManagement() {
                             <label className="block text-sm font-semibold text-slate-700">Grade Access Control</label>
                             <span className="text-[11px] text-slate-500">Leave all unchecked to grant access to all grades.</span>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                            {GRADE_LABELS.map(g => {
                               const canEdit = formData.permissions?.canEditGrades?.includes(g);
                               const canView = formData.permissions?.canViewGrades?.includes(g);
+                              const editClasses = formData.permissions?.canEditClasses?.[g]?.join(', ') || '';
+                              const viewClasses = formData.permissions?.canViewClasses?.[g]?.join(', ') || '';
+
+                              const handleClassChange = (type: 'canEditClasses' | 'canViewClasses', value: string) => {
+                                 const list = value.split(',').map(s => s.trim()).filter(Boolean);
+                                 const existingMap = formData.permissions?.[type] || {};
+                                 updatePermission(type, { ...existingMap, [g]: list });
+                              };
+
                               return (
-                                 <div key={g} className="border border-slate-200 rounded-lg p-2 bg-white flex flex-col items-center gap-2">
-                                    <span className="text-xs font-bold w-full text-center border-b pb-1">Grade {g}</span>
-                                    <div className="flex px-1 gap-2 w-full justify-around">
-                                       <label className="flex flex-col items-center gap-1 cursor-pointer">
-                                          <input type="checkbox" checked={canView} onChange={() => toggleGrade('canViewGrades', g)} />
-                                          <span className="text-[10px] text-slate-500 font-medium">View</span>
+                                 <div key={g} className="border border-slate-200 rounded-xl p-3 bg-white flex flex-col gap-2 shadow-sm">
+                                    <span className="text-sm font-bold w-full border-b border-slate-100 pb-1.5 text-slate-800">Grade {g}</span>
+                                    
+                                    <div className="flex gap-4 px-1 py-1">
+                                       <label className="flex items-center gap-1.5 cursor-pointer flex-1">
+                                          <input type="checkbox" checked={canView} onChange={() => toggleGrade('canViewGrades', g)} className="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300" />
+                                          <span className="text-xs text-slate-600 font-medium">View</span>
                                        </label>
-                                       <label className="flex flex-col items-center gap-1 cursor-pointer">
-                                          <input type="checkbox" checked={canEdit} onChange={() => toggleGrade('canEditGrades', g)} />
-                                          <span className="text-[10px] text-slate-500 font-medium z-10 w-full text-center pr-1 pl-0 ml-0 hover:text-slate-800">Edit</span>
+                                       <label className="flex items-center gap-1.5 cursor-pointer flex-1">
+                                          <input type="checkbox" checked={canEdit} onChange={() => toggleGrade('canEditGrades', g)} className="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300" />
+                                          <span className="text-xs text-slate-600 font-medium">Edit</span>
                                        </label>
                                     </div>
+                                    
+                                    {(canView || canEdit) && (
+                                       <div className="space-y-2 mt-1 px-1 border-t border-slate-50 pt-2">
+                                          {canView && (
+                                             <div>
+                                                <label className="text-[10px] uppercase tracking-wider font-bold text-slate-400 block mb-1">View Sections</label>
+                                                <input type="text" placeholder="e.g. A, B (blank = all)" value={viewClasses} onChange={(e) => handleClassChange('canViewClasses', e.target.value)} className="w-full text-xs px-2 py-1.5 border border-slate-200 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none text-slate-700 bg-slate-50 focus:bg-white transition-colors" />
+                                             </div>
+                                          )}
+                                          {canEdit && (
+                                             <div>
+                                                <label className="text-[10px] uppercase tracking-wider font-bold text-slate-400 block mb-1">Edit Sections</label>
+                                                <input type="text" placeholder="e.g. A, B (blank = all)" value={editClasses} onChange={(e) => handleClassChange('canEditClasses', e.target.value)} className="w-full text-xs px-2 py-1.5 border border-slate-200 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none text-slate-700 bg-slate-50 focus:bg-white transition-colors" />
+                                             </div>
+                                          )}
+                                       </div>
+                                    )}
                                  </div>
                               );
                            })}

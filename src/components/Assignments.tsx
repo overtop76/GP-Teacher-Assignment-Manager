@@ -13,7 +13,19 @@ export default function Assignments() {
   const [selectedGrade, setSelectedGrade] = useState<string>('');
   const [selectedClass, setSelectedClass] = useState<string>('');
 
-  const classesText = selectedGrade ? getClassesForGrade(selectedGrade) : [];
+  const classesTextRaw = selectedGrade ? getClassesForGrade(selectedGrade) : [];
+  const classesText = classesTextRaw.filter(c => {
+    if (currentUser?.permissions.isAdmin || (!currentUser?.permissions.canEditGrades?.length && !currentUser?.permissions.canViewGrades?.length)) return true;
+    const canViewList = currentUser?.permissions.canViewClasses?.[selectedGrade] || [];
+    const canEditList = currentUser?.permissions.canEditClasses?.[selectedGrade] || [];
+    
+    const hasViewAll = currentUser?.permissions.canViewGrades?.includes(selectedGrade) && canViewList.length === 0;
+    const hasEditAll = currentUser?.permissions.canEditGrades?.includes(selectedGrade) && canEditList.length === 0;
+
+    if (hasViewAll || hasEditAll) return true;
+
+    return canViewList.includes(c) || canEditList.includes(c);
+  });
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -36,9 +48,17 @@ export default function Assignments() {
   const [copyDestGrade, setCopyDestGrade] = useState('');
   const [copyDestClass, setCopyDestClass] = useState('');
 
-  const destClasses = copyDestSchool === activeSchoolId 
+  const destClassesRaw = copyDestSchool === activeSchoolId 
      ? (copyDestGrade ? getClassesForGrade(copyDestGrade) : [])
      : (copyDestGrade ? getClassesForAnotherSchool(copyDestSchool, copyDestGrade) : []);
+
+  const destClasses = destClassesRaw.filter(c => {
+    if (isAdmin || hasNoGradeAccessControl) return true;
+    const canEditList = currentUser?.permissions.canEditClasses?.[copyDestGrade] || [];
+    const hasEditAll = currentUser?.permissions.canEditGrades?.includes(copyDestGrade) && canEditList.length === 0;
+    if (hasEditAll) return true;
+    return canEditList.includes(c);
+  });
 
   const currentSubjects = selectedGrade && selectedClass 
     ? data.gradeLevels[selectedGrade]?.classes[selectedClass]?.subjects || {} 
@@ -49,7 +69,15 @@ export default function Assignments() {
   const hasNoGradeAccessControl = (!currentUser?.permissions?.canEditGrades?.length && !currentUser?.permissions?.canViewGrades?.length);
 
   const isAdmin = currentUser?.permissions.isAdmin;
-  const canEditSelectedGrade = isAdmin || hasNoGradeAccessControl || (selectedGrade && currentUser?.permissions.canEditGrades?.includes(selectedGrade));
+  const canEditSelectedGrade = (() => {
+      if (isAdmin || hasNoGradeAccessControl) return true;
+      if (selectedGrade && currentUser?.permissions.canEditGrades?.includes(selectedGrade)) {
+          const editList = currentUser.permissions.canEditClasses?.[selectedGrade] || [];
+          if (editList.length === 0) return true;
+          if (selectedClass && editList.includes(selectedClass)) return true;
+      }
+      return false;
+  })();
 
   const gradesList = data.gradesOrder || GRADE_LABELS;
   const visibleGrades = gradesList.filter(g => 
@@ -155,7 +183,17 @@ export default function Assignments() {
       return;
     }
 
-    const canEditDest = isAdmin || hasNoGradeAccessControl || currentUser?.permissions.canEditGrades?.includes(copyDestGrade);
+    const canEditDest = (() => {
+      if (isAdmin || hasNoGradeAccessControl) return true;
+      if (copyDestGrade && currentUser?.permissions.canEditGrades?.includes(copyDestGrade)) {
+          // If copying to another school, we don't have the classes mapped exactly in permissions, assuming section restrictions only apply strictly on current school? Or apply same restrictions?
+          // Let's enforce the same section restrictions regardless of school.
+          const editList = currentUser.permissions.canEditClasses?.[copyDestGrade] || [];
+          if (editList.length === 0) return true;
+          if (copyDestClass && editList.includes(copyDestClass)) return true;
+      }
+      return false;
+    })();
     const canSwitchSchool = isAdmin || currentUser?.assignedSchools?.includes('ALL');
     
     if (copyDestSchool !== activeSchoolId && !canSwitchSchool) {

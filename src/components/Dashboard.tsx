@@ -1,4 +1,5 @@
 import { useAppStore } from '@/lib/store';
+import { useAuthStore } from '@/lib/authStore';
 import { GRADE_LABELS, MAX_CLASS_SESSIONS, TEACHER_MAX_SESSIONS, TEACHER_MIN_SESSIONS } from '@/lib/types';
 import { Users, School, BookOpen, Presentation, Hash, Library } from 'lucide-react';
 
@@ -40,7 +41,23 @@ export default function Dashboard() {
     });
   });
 
+  const { currentUser } = useAuthStore();
+  const isAdmin = currentUser?.permissions.isAdmin;
+
   const handleDeleteClass = (grade: string, cls: string) => {
+    let canEdit = false;
+    if (isAdmin || (!currentUser?.permissions.canEditGrades?.length && !currentUser?.permissions.canViewGrades?.length)) {
+      canEdit = true;
+    } else if (currentUser?.permissions.canEditGrades?.includes(grade)) {
+      const editList = currentUser?.permissions.canEditClasses?.[grade] || [];
+      if (editList.length === 0 || editList.includes(cls)) canEdit = true;
+    }
+
+    if (!canEdit) {
+      alert("You do not have permission to delete this class.");
+      return;
+    }
+
     if (confirm(`Are you sure you want to delete Class ${cls} from Grade ${grade}? This will also delete all subjects assigned to it.`)) {
       deleteClass(grade, cls);
     }
@@ -175,13 +192,25 @@ export default function Dashboard() {
                        </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button 
-                        onClick={() => handleDeleteClass(item.grade, item.className)} 
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors inline-block"
-                        title="Delete Class"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {(() => {
+                        let canEdit = false;
+                        if (isAdmin || (!currentUser?.permissions.canEditGrades?.length && !currentUser?.permissions.canViewGrades?.length)) {
+                          canEdit = true;
+                        } else if (currentUser?.permissions.canEditGrades?.includes(item.grade)) {
+                          const editList = currentUser?.permissions.canEditClasses?.[item.grade] || [];
+                          if (editList.length === 0 || editList.includes(item.className)) canEdit = true;
+                        }
+                        if (!canEdit) return null;
+                        return (
+                          <button 
+                            onClick={() => handleDeleteClass(item.grade, item.className)} 
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors inline-block"
+                            title="Delete Class"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))
