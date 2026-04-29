@@ -27,7 +27,8 @@ export default function Reports() {
   const hasNoGradeAccessControl = (!currentUser?.permissions?.canEditGrades?.length && !currentUser?.permissions?.canViewGrades?.length);
   const isAdmin = currentUser?.permissions.isAdmin;
   
-  const visibleGrades = GRADE_LABELS.filter(g => 
+  const gradesList = data.gradesOrder || GRADE_LABELS;
+  const visibleGrades = gradesList.filter(g => 
       isAdmin || 
       hasNoGradeAccessControl ||
       currentUser?.permissions.canEditGrades?.includes(g) || 

@@ -10,6 +10,7 @@ function initEmptyData(schoolName: string = ''): AppData {
   const data: AppData = {
     schoolName: schoolName,
     gradeLevels: {},
+    gradesOrder: [...GRADE_LABELS],
     nextSubjectId: 1,
     nextTeacherId: 1,
     teachers: {},
@@ -37,6 +38,8 @@ export interface AppContextType {
   getClassesForGrade: (grade: string) => string[];
   clearClassesForGrade: (grade: string) => void;
   deleteClass: (grade: string, className: string) => void;
+  renameGrade: (oldName: string, newName: string) => void;
+  renameClass: (grade: string, oldName: string, newName: string) => void;
   importSchoolData: (jsonData: string) => boolean;
 }
 
@@ -151,6 +154,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const d = structuredClone(data);
       if (d.gradeLevels[grade]?.classes[className]) {
         delete d.gradeLevels[grade].classes[className];
+        save(d);
+      }
+    },
+    renameGrade: (oldName: string, newName: string) => {
+      if (!newName.trim() || oldName === newName) return;
+      const d = structuredClone(data);
+      if (!d.gradesOrder) d.gradesOrder = [...GRADE_LABELS];
+      const idx = d.gradesOrder.indexOf(oldName);
+      if (idx !== -1) {
+        d.gradesOrder[idx] = newName;
+      }
+      if (d.gradeLevels[oldName]) {
+        d.gradeLevels[newName] = d.gradeLevels[oldName];
+        delete d.gradeLevels[oldName];
+      }
+      save(d);
+    },
+    renameClass: (grade: string, oldName: string, newName: string) => {
+      if (!newName.trim() || oldName === newName) return;
+      const d = structuredClone(data);
+      const gradeData = d.gradeLevels[grade];
+      if (gradeData?.classes[oldName]) {
+        gradeData.classes[newName] = gradeData.classes[oldName];
+        delete gradeData.classes[oldName];
         save(d);
       }
     },
@@ -372,7 +399,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const getTeacherTotalSessions = (teacherName: string) => {
     let total = 0;
-    GRADE_LABELS.forEach(g => {
+    const gradesToIterate = data?.gradesOrder || Object.keys(data?.gradeLevels || {});
+    gradesToIterate.forEach(g => {
       Object.values(data.gradeLevels[g]?.classes || {}).forEach((cls: any) => {
         Object.values(cls.subjects || {}).forEach((subj: any) => {
           if (subj.isFL) {

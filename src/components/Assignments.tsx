@@ -51,7 +51,8 @@ export default function Assignments() {
   const isAdmin = currentUser?.permissions.isAdmin;
   const canEditSelectedGrade = isAdmin || hasNoGradeAccessControl || (selectedGrade && currentUser?.permissions.canEditGrades?.includes(selectedGrade));
 
-  const visibleGrades = GRADE_LABELS.filter(g => 
+  const gradesList = data.gradesOrder || GRADE_LABELS;
+  const visibleGrades = gradesList.filter(g => 
       isAdmin || 
       hasNoGradeAccessControl ||
       currentUser?.permissions.canEditGrades?.includes(g) || 
@@ -306,7 +307,7 @@ export default function Assignments() {
                 className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-900"
               >
                 <option value="">-- Select --</option>
-                {GRADE_LABELS.filter(g => (copyDestSchool === activeSchoolId ? getClassesForGrade(g) : getClassesForAnotherSchool(copyDestSchool, g)).length > 0 && (isAdmin || hasNoGradeAccessControl || currentUser?.permissions.canEditGrades?.includes(g))).map(g => (
+                {gradesList.filter(g => (copyDestSchool === activeSchoolId ? getClassesForGrade(g) : getClassesForAnotherSchool(copyDestSchool, g)).length > 0 && (isAdmin || hasNoGradeAccessControl || currentUser?.permissions.canEditGrades?.includes(g))).map(g => (
                   <option key={g} value={g}>Grade {g}</option>
                 ))}
               </select>

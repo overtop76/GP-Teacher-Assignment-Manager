@@ -66,6 +66,7 @@ export interface SystemData {
 export interface AppData {
   schoolName: string;
   gradeLevels: Record<string, GradeData>;
+  gradesOrder?: string[];
   nextSubjectId: number;
   nextTeacherId: number;
   teachers: Record<string, string>;

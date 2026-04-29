@@ -2,18 +2,22 @@ import { useState, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { useAuthStore } from '@/lib/authStore';
 import { GRADE_LABELS } from '@/lib/types';
-import { Save, Trash2, Plus, Building, CopyCheck, Download, Upload } from 'lucide-react';
+import { Save, Trash2, Plus, Building, CopyCheck, Download, Upload, Edit2, Check, X } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
 export default function Setup() {
-  const { data, getClassesForGrade, setClassesForGrade, clearClassesForGrade, importSchoolData } = useAppStore();
+  const { data, getClassesForGrade, setClassesForGrade, clearClassesForGrade, importSchoolData, renameGrade, renameClass } = useAppStore();
+  const gradesList = data?.gradesOrder || GRADE_LABELS;
   const { currentUser, setActiveSchoolId, activeSchoolId, createSchool, updateSchool, systemData } = useAuthStore();
   const [sName, setSName] = useState(data?.schoolName || '');
-  const [activeGrade, setActiveGrade] = useState('K1');
+  const [activeGrade, setActiveGrade] = useState(gradesList[0] || 'K1');
 
   const classesText = activeSchoolId ? getClassesForGrade(activeGrade).join(', ') : '';
   const [classListInput, setClassListInput] = useState(classesText);
   const [isCreatingNewSchool, setIsCreatingNewSchool] = useState(!activeSchoolId);
+  
+  const [editingGrade, setEditingGrade] = useState<{old: string, newName: string} | null>(null);
+  const [editingClass, setEditingClass] = useState<{old: string, newName: string} | null>(null);
 
   useEffect(() => {
     if (!isCreatingNewSchool) {
@@ -65,6 +69,30 @@ export default function Setup() {
     }
   };
 
+  const handleRenameGrade = () => {
+    if (editingGrade && editingGrade.newName.trim() && editingGrade.newName.trim() !== editingGrade.old) {
+      renameGrade(editingGrade.old, editingGrade.newName.trim());
+      setActiveGrade(editingGrade.newName.trim());
+      setEditingGrade(null);
+      toast.success('Grade renamed successfully!');
+    } else {
+      setEditingGrade(null);
+    }
+  };
+
+  const handleRenameClass = () => {
+    if (editingClass && editingClass.newName.trim() && editingClass.newName.trim() !== editingClass.old) {
+      renameClass(activeGrade, editingClass.old, editingClass.newName.trim());
+      // Re-fetch classes input to reflect changes if necessary
+      const newClasses = getClassesForGrade(activeGrade).map(c => c === editingClass.old ? editingClass.newName.trim() : c);
+      setClassListInput(newClasses.join(', '));
+      setEditingClass(null);
+      toast.success('Section renamed successfully!');
+    } else {
+      setEditingClass(null);
+    }
+  };
+
   const applyToAllGrades = () => {
     if (!activeSchoolId) {
         toast.error('Please create/select a school first.');
@@ -75,8 +103,8 @@ export default function Setup() {
       toast.error('Enter at least one class section.');
       return;
     }
-    if (confirm(`Are you sure you want to apply sections [${arr.join(', ')}] to EVERY grade level (K1 to 12)?`)) {
-        GRADE_LABELS.forEach(g => setClassesForGrade(g, arr));
+    if (confirm(`Are you sure you want to apply sections [${arr.join(', ')}] to EVERY grade level?`)) {
+        gradesList.forEach(g => setClassesForGrade(g, arr));
         toast.success(`Sections applied to all grades!`);
     }
   };
@@ -172,7 +200,7 @@ export default function Setup() {
             <p className="text-sm text-slate-500 mb-6">Define class sections (e.g., A, B, C) for each grade in {sName}.</p>
             
             <div className="flex flex-wrap gap-2 mb-6">
-              {GRADE_LABELS.map(g => (
+              {gradesList.map(g => (
                 <button
                   key={g}
                   onClick={() => handleGradeChange(g)}
@@ -188,16 +216,71 @@ export default function Setup() {
             </div>
 
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
-              <div className="mb-4 flex items-baseline gap-3">
-                <strong className="text-slate-900 text-lg">Grade {activeGrade}</strong>
-                <span className="text-slate-500 text-sm">
-                  Current: {getClassesForGrade(activeGrade).join(', ') || <em className="text-slate-400">None</em>}
-                </span>
+              <div className="mb-4 flex items-center gap-3">
+                {editingGrade?.old === activeGrade ? (
+                  <div className="flex items-center gap-2">
+                    <strong className="text-slate-900 text-lg">Grade</strong>
+                    <input 
+                      type="text" 
+                      value={editingGrade.newName}
+                      onChange={e => setEditingGrade({ ...editingGrade, newName: e.target.value })}
+                      onKeyDown={e => e.key === 'Enter' && handleRenameGrade()}
+                      className="px-2 py-1 border border-slate-300 rounded text-sm w-32 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                      autoFocus
+                    />
+                    <button onClick={handleRenameGrade} className="text-emerald-600 hover:text-emerald-700 p-1">
+                      <Check size={18} />
+                    </button>
+                    <button onClick={() => setEditingGrade(null)} className="text-red-500 hover:text-red-600 p-1">
+                      <X size={18} />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <strong className="text-slate-900 text-lg">Grade {activeGrade}</strong>
+                    <button onClick={() => setEditingGrade({ old: activeGrade, newName: activeGrade })} className="text-slate-400 hover:text-indigo-600 transition-colors p-1" title="Rename Grade">
+                       <Edit2 size={16} />
+                    </button>
+                  </>
+                )}
+              </div>
+              
+              <div className="mb-6 flex flex-wrap gap-2">
+                {getClassesForGrade(activeGrade).map(c => (
+                  <div key={c} className="flex items-center gap-1 bg-white border border-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-700">
+                     {editingClass?.old === c ? (
+                       <div className="flex items-center gap-1">
+                         <span>Class</span>
+                         <input 
+                            type="text" 
+                            value={editingClass.newName}
+                            onChange={e => setEditingClass({ ...editingClass, newName: e.target.value })}
+                            onKeyDown={e => e.key === 'Enter' && handleRenameClass()}
+                            className="px-1.5 py-0.5 border border-slate-300 rounded text-sm w-16 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                            autoFocus
+                         />
+                         <button onClick={handleRenameClass} className="text-emerald-600 hover:text-emerald-700 p-[1px]">
+                           <Check size={14} />
+                         </button>
+                         <button onClick={() => setEditingClass(null)} className="text-red-500 hover:text-red-600 p-[1px]">
+                           <X size={14} />
+                         </button>
+                       </div>
+                     ) : (
+                       <>
+                         Class {c}
+                         <button onClick={() => setEditingClass({ old: c, newName: c })} className="ml-1 text-slate-400 hover:text-indigo-600 transition-colors p-0.5" title="Rename Class">
+                            <Edit2 size={14} />
+                         </button>
+                       </>
+                     )}
+                  </div>
+                ))}
               </div>
 
               <div className="flex flex-col sm:flex-row gap-4 items-end">
                 <div className="flex-[3] w-full">
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Class Sections (comma-separated)</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Add or Overwrite Class Sections (comma-separated)</label>
                   <input 
                     type="text" 
                     value={classListInput}
