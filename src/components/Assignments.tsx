@@ -175,6 +175,56 @@ export default function Assignments() {
     toast.success('Copied successfully!');
   };
 
+  const allTeachers = Object.keys(data.teachers || {}).sort();
+  const allSubjectNames = new Set<string>();
+  Object.values(data.gradeLevels).forEach(g => {
+    Object.values(g.classes || {}).forEach(c => {
+      Object.entries(c.subjects || {}).forEach(([s, subj]: [string, any]) => {
+         if (!['FL', 'Art/Music'].includes(s)) {
+             allSubjectNames.add(s);
+         }
+         if (subj.isElective && subj.electives) {
+             Object.keys(subj.electives).forEach(el => allSubjectNames.add(el));
+         }
+      });
+    });
+  });
+  const uniqueSubjectNames = Array.from(allSubjectNames).sort();
+
+  const getFilteredTeachers = (targetSubject: string) => {
+    if (!targetSubject || !targetSubject.trim()) return allTeachers;
+    const target = targetSubject.toLowerCase().trim();
+    const teachers = new Set<string>();
+    
+    Object.values(data.gradeLevels).forEach(g => {
+      Object.values(g.classes || {}).forEach(c => {
+        Object.entries(c.subjects || {}).forEach(([sName, subj]: [string, any]) => {
+          if (!['FL', 'Art/Music'].includes(sName) && !subj.isElective) {
+             if (sName.toLowerCase().trim() === target && subj.teacher) teachers.add(subj.teacher);
+          }
+          if (subj.isFL && subj.languages) {
+             Object.entries(subj.languages).forEach(([lang, lData]: [string, any]) => {
+               if (lang.toLowerCase().trim() === target && lData.teacher) teachers.add(lData.teacher);
+             });
+          }
+          if (subj.isArtMusic && subj.subSubjects) {
+             Object.entries(subj.subSubjects).forEach(([am, amData]: [string, any]) => {
+               if (am.toLowerCase().trim() === target && amData.teacher) teachers.add(amData.teacher);
+             });
+          }
+          if (subj.isElective && subj.electives) {
+             Object.entries(subj.electives).forEach(([elName, elData]: [string, any]) => {
+               if (elName.toLowerCase().trim() === target && elData.teacher) teachers.add(elData.teacher);
+             });
+          }
+        });
+      });
+    });
+    
+    const arr = Array.from(teachers).sort();
+    return arr.length > 0 ? arr : allTeachers;
+  };
+
   if (visibleGrades.length === 0) {
       return (
           <div className="p-8 text-center text-slate-500">
@@ -525,11 +575,15 @@ export default function Assignments() {
                        <span className="text-sm font-medium w-16 text-slate-700">{lang}</span>
                        <input 
                         type="text" 
+                        list={`teachers-list-FL-${lang}`}
                         placeholder="Teacher name" 
                         value={flTeachers[lang] || ''} 
                         onChange={e => setFlTeachers(prev => ({ ...prev, [lang]: e.target.value }))}
                         className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900"
                        />
+                       <datalist id={`teachers-list-FL-${lang}`}>
+                         {getFilteredTeachers(lang).map(t => <option key={t} value={t} />)}
+                       </datalist>
                      </div>
                    ))}
                  </div>
@@ -547,11 +601,15 @@ export default function Assignments() {
                        <span className="text-sm font-medium w-16 text-slate-700">{am}</span>
                        <input 
                         type="text" 
+                        list={`teachers-list-AM-${am}`}
                         placeholder="Teacher name" 
                         value={amTeachers[am] || ''} 
                         onChange={e => setAmTeachers(prev => ({ ...prev, [am]: e.target.value }))}
                         className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900"
                        />
+                       <datalist id={`teachers-list-AM-${am}`}>
+                         {getFilteredTeachers(am).map(t => <option key={t} value={t} />)}
+                       </datalist>
                      </div>
                    ))}
                  </div>
@@ -560,7 +618,7 @@ export default function Assignments() {
               <div className="space-y-4">
                  <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Block Name (e.g. Science Electives)</label>
-                    <input type="text" value={subjectName} disabled={!!editingSubject} onChange={e => setSubjectName(e.target.value)} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900 text-sm disabled:bg-slate-50 disabled:text-slate-500" placeholder="Electives" />
+                    <input type="text" list="subjects-list" value={subjectName} disabled={!!editingSubject} onChange={e => setSubjectName(e.target.value)} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900 text-sm disabled:bg-slate-50 disabled:text-slate-500" placeholder="Electives" />
                  </div>
                  <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Shared Sessions/Week</label>
@@ -575,6 +633,7 @@ export default function Assignments() {
                      <div key={idx} className="flex items-center gap-2">
                        <input 
                         type="text" 
+                        list="subjects-list"
                         placeholder="Elective Name" 
                         value={eo.name} 
                         onChange={e => {
@@ -586,6 +645,7 @@ export default function Assignments() {
                        />
                        <input 
                         type="text" 
+                        list={`teachers-list-EO-${idx}`}
                         placeholder="Teacher name" 
                         value={eo.teacher} 
                         onChange={e => {
@@ -595,6 +655,9 @@ export default function Assignments() {
                         }}
                         className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-900"
                        />
+                       <datalist id={`teachers-list-EO-${idx}`}>
+                         {getFilteredTeachers(eo.name).map(t => <option key={t} value={t} />)}
+                       </datalist>
                        {electiveOptions.length > 1 && (
                          <button onClick={() => {
                            const n = [...electiveOptions];
@@ -610,7 +673,7 @@ export default function Assignments() {
               <div className="space-y-4">
                  <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Subject Name</label>
-                    <input type="text" value={subjectName} disabled={!!editingSubject} onChange={e => setSubjectName(e.target.value)} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900 text-sm disabled:bg-slate-50 disabled:text-slate-500" />
+                    <input type="text" list="subjects-list" value={subjectName} disabled={!!editingSubject} onChange={e => setSubjectName(e.target.value)} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900 text-sm disabled:bg-slate-50 disabled:text-slate-500" />
                  </div>
                  <div className="flex gap-4">
                     <div className="flex-1">
@@ -619,7 +682,10 @@ export default function Assignments() {
                     </div>
                     <div className="flex-1">
                       <label className="block text-sm font-semibold text-slate-700 mb-1.5">Teacher</label>
-                      <input type="text" value={teacher} onChange={e => setTeacher(e.target.value)} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900 text-sm" />
+                      <input type="text" list="teachers-list-standard" value={teacher} onChange={e => setTeacher(e.target.value)} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900 text-sm" />
+                      <datalist id="teachers-list-standard">
+                        {getFilteredTeachers(subjectName).map(t => <option key={t} value={t} />)}
+                      </datalist>
                     </div>
                  </div>
               </div>
@@ -631,6 +697,12 @@ export default function Assignments() {
             </div>
           </div>
         </div>
+      )}
+      
+      {uniqueSubjectNames.length > 0 && (
+        <datalist id="subjects-list">
+          {uniqueSubjectNames.map(s => <option key={s} value={s} />)}
+        </datalist>
       )}
     </div>
   );
