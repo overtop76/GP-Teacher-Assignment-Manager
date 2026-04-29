@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '@/lib/authStore';
+import { useAppStore } from '@/lib/store';
 import { User, Plus, Trash2, Edit, Save, X, Shield, Lock, School, Key } from 'lucide-react';
 import { GRADE_LABELS, UserAccount } from '@/lib/types';
 
 export default function UsersManagement() {
   const { systemData, createUser, updateUser, deleteUser, currentUser } = useAuthStore();
+  const { getClassesForAnotherSchool } = useAppStore();
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [formData, setFormData] = useState<Partial<UserAccount>>({});
@@ -228,13 +230,36 @@ export default function UsersManagement() {
                            {GRADE_LABELS.map(g => {
                               const canEdit = formData.permissions?.canEditGrades?.includes(g);
                               const canView = formData.permissions?.canViewGrades?.includes(g);
-                              const editClasses = formData.permissions?.canEditClasses?.[g]?.join(', ') || '';
-                              const viewClasses = formData.permissions?.canViewClasses?.[g]?.join(', ') || '';
+                              const editClassesList = formData.permissions?.canEditClasses?.[g] || [];
+                              const viewClassesList = formData.permissions?.canViewClasses?.[g] || [];
+                              const editClasses = editClassesList.join(', ');
+                              const viewClasses = viewClassesList.join(', ');
+
+                              const availableSectionsSet = new Set<string>();
+                              const schoolsToQuery = formData.assignedSchools?.includes('ALL') 
+                                ? systemData.schools.map(s => s.id) 
+                                : (formData.assignedSchools || []);
+                              schoolsToQuery.forEach(schoolId => {
+                                 const classes = getClassesForAnotherSchool(schoolId, g);
+                                 classes.forEach(c => availableSectionsSet.add(c));
+                              });
+                              const availableSections = Array.from(availableSectionsSet).sort((a, b) => a.localeCompare(b));
 
                               const handleClassChange = (type: 'canEditClasses' | 'canViewClasses', value: string) => {
                                  const list = value.split(',').map(s => s.trim()).filter(Boolean);
                                  const existingMap = formData.permissions?.[type] || {};
                                  updatePermission(type, { ...existingMap, [g]: list });
+                              };
+
+                              const toggleSection = (type: 'canEditClasses' | 'canViewClasses', section: string) => {
+                                 const currentList = formData.permissions?.[type]?.[g] || [];
+                                 let newList;
+                                 if (currentList.includes(section)) {
+                                    newList = currentList.filter(s => s !== section);
+                                 } else {
+                                    newList = [...currentList, section].sort((a, b) => a.localeCompare(b));
+                                 }
+                                 updatePermission(type, { ...(formData.permissions?.[type] || {}), [g]: newList });
                               };
 
                               return (
@@ -253,16 +278,48 @@ export default function UsersManagement() {
                                     </div>
                                     
                                     {(canView || canEdit) && (
-                                       <div className="space-y-2 mt-1 px-1 border-t border-slate-50 pt-2">
+                                       <div className="space-y-3 mt-1 px-1 border-t border-slate-50 pt-2">
                                           {canView && (
                                              <div>
-                                                <label className="text-[10px] uppercase tracking-wider font-bold text-slate-400 block mb-1">View Sections</label>
+                                                <div className="flex items-center justify-between mb-1.5">
+                                                   <label className="text-[10px] uppercase tracking-wider font-bold text-slate-400">View Sections</label>
+                                                </div>
+                                                {availableSections.length > 0 && (
+                                                   <div className="flex flex-wrap gap-1.5 mb-2">
+                                                      {availableSections.map(sec => (
+                                                         <button
+                                                            key={sec}
+                                                            type="button"
+                                                            onClick={() => toggleSection('canViewClasses', sec)}
+                                                            className={`px-2 py-0.5 text-xs rounded-md border font-medium transition-colors ${viewClassesList.includes(sec) ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'}`}
+                                                         >
+                                                            {sec}
+                                                         </button>
+                                                      ))}
+                                                   </div>
+                                                )}
                                                 <input type="text" placeholder="e.g. A, B (blank = all)" value={viewClasses} onChange={(e) => handleClassChange('canViewClasses', e.target.value)} className="w-full text-xs px-2 py-1.5 border border-slate-200 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none text-slate-700 bg-slate-50 focus:bg-white transition-colors" />
                                              </div>
                                           )}
                                           {canEdit && (
                                              <div>
-                                                <label className="text-[10px] uppercase tracking-wider font-bold text-slate-400 block mb-1">Edit Sections</label>
+                                                <div className="flex items-center justify-between mb-1.5">
+                                                   <label className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Edit Sections</label>
+                                                </div>
+                                                {availableSections.length > 0 && (
+                                                   <div className="flex flex-wrap gap-1.5 mb-2">
+                                                      {availableSections.map(sec => (
+                                                         <button
+                                                            key={sec}
+                                                            type="button"
+                                                            onClick={() => toggleSection('canEditClasses', sec)}
+                                                            className={`px-2 py-0.5 text-xs rounded-md border font-medium transition-colors ${editClassesList.includes(sec) ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'}`}
+                                                         >
+                                                            {sec}
+                                                         </button>
+                                                      ))}
+                                                   </div>
+                                                )}
                                                 <input type="text" placeholder="e.g. A, B (blank = all)" value={editClasses} onChange={(e) => handleClassChange('canEditClasses', e.target.value)} className="w-full text-xs px-2 py-1.5 border border-slate-200 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none text-slate-700 bg-slate-50 focus:bg-white transition-colors" />
                                              </div>
                                           )}
