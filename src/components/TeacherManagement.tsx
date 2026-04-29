@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useAppStore } from '@/lib/store';
 import { useAuthStore } from '@/lib/authStore';
-import { BadgeCheck, GraduationCap, X, Check, Edit2, FileDown, FileUp, FileJson, FileText } from 'lucide-react';
+import { BadgeCheck, GraduationCap, X, Check, Edit2, FileDown, FileUp, FileJson, FileText, UserPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { GRADE_LABELS } from '@/lib/types';
 import * as XLSX from 'xlsx';
@@ -9,12 +9,15 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 export default function TeacherManagement() {
-  const { data, setTeacherProfile } = useAppStore();
+  const { data, setTeacherProfile, renameTeacher, addTeacher, setSubjectForGradeClass } = useAppStore();
   const { currentUser } = useAuthStore();
   const [filterTeacherName, setFilterTeacherName] = useState('');
   const [filterSubject, setFilterSubject] = useState('');
   const [filterType, setFilterType] = useState('all'); // 'all', 'hod', 'only_teacher'
   const [editingHod, setEditingHod] = useState<string | null>(null);
+  const [editingTeacherId, setEditingTeacherId] = useState<string | null>(null);
+  const [editTeacherName, setEditTeacherName] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
   const gradesList = data.gradesOrder || GRADE_LABELS;
   
   const canEdit = currentUser?.permissions.isAdmin; // Only admins can edit HoD? Or maybe anyone with access. Let's say all users with access.
@@ -291,8 +294,85 @@ export default function TeacherManagement() {
     );
   };
 
+  const AddTeacherModal = () => {
+    const [name, setName] = useState('');
+    const [grade, setGrade] = useState('');
+    const [cls, setCls] = useState('');
+    const [subject, setSubject] = useState('');
+    const [sessions, setSessions] = useState(1);
+
+    const availableClasses = grade ? Object.keys(data.gradeLevels[grade]?.classes || {}).sort((a,b)=>a.localeCompare(b)) : [];
+    
+    const handleSave = () => {
+      const tName = name.trim();
+      if (!tName) return toast.error('Teacher name is required');
+      addTeacher(tName);
+      let assigned = false;
+      if (grade && cls && subject && sessions > 0) {
+         setSubjectForGradeClass(grade, cls, subject.trim(), sessions, tName, undefined);
+         assigned = true;
+      }
+      toast.success(assigned ? 'Teacher added and assigned!' : 'Teacher added successfully!');
+      setShowAddModal(false);
+    };
+
+    return (
+      <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+          <div className="flex items-center justify-between p-6 border-b border-slate-100">
+            <h3 className="text-xl font-bold text-slate-900">Add New Teacher</h3>
+            <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+              <X size={20} />
+            </button>
+          </div>
+          <div className="p-6 space-y-4 bg-slate-50">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Teacher Name <span className="text-red-500">*</span></label>
+              <input type="text" autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="e.g. John Doe" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20" />
+            </div>
+            
+            <div className="pt-4 border-t border-slate-200">
+               <h4 className="text-sm font-bold text-slate-800 mb-3">Quick Assignment (Optional)</h4>
+               <div className="grid grid-cols-2 gap-3 mb-3">
+                 <div>
+                   <label className="block text-xs font-semibold text-slate-700 mb-1">Grade</label>
+                   <select value={grade} onChange={e => { setGrade(e.target.value); setCls(''); }} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20">
+                     <option value="">-- Select --</option>
+                     {gradesList.map(g => <option key={g} value={g}>{g}</option>)}
+                   </select>
+                 </div>
+                 <div>
+                   <label className="block text-xs font-semibold text-slate-700 mb-1">Class / Section</label>
+                   <select value={cls} onChange={e => setCls(e.target.value)} disabled={!grade} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20 disabled:bg-slate-100 text-slate-900">
+                     <option value="">-- Select --</option>
+                     {availableClasses.map(c => <option key={c} value={c}>{c}</option>)}
+                   </select>
+                 </div>
+               </div>
+               <div className="grid grid-cols-2 gap-3">
+                 <div>
+                   <label className="block text-xs font-semibold text-slate-700 mb-1">Subject</label>
+                   <input type="text" value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Math" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20" />
+                 </div>
+                 <div>
+                   <label className="block text-xs font-semibold text-slate-700 mb-1">Sessions per week</label>
+                   <input type="number" min="1" max="20" value={sessions} onChange={e => setSessions(parseInt(e.target.value)||1)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20" />
+                 </div>
+               </div>
+            </div>
+          </div>
+          <div className="p-6 border-t border-slate-100 flex justify-end gap-3 bg-white">
+            <button onClick={() => setShowAddModal(false)} className="px-4 py-2 text-slate-600 hover:text-slate-800 font-medium text-sm transition-colors">Cancel</button>
+            <button onClick={handleSave} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition-colors shadow-sm">Save Teacher</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      {showAddModal && <AddTeacherModal />}
       <div className="p-6 border-b border-slate-200 bg-slate-50 flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
@@ -301,6 +381,9 @@ export default function TeacherManagement() {
           </div>
           
           <div className="flex flex-wrap gap-2">
+            <button onClick={() => setShowAddModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors">
+              <UserPlus size={14} /> Add Teacher
+            </button>
             <button onClick={handleExportExcel} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-sm font-medium hover:bg-emerald-100 transition-colors">
               <FileDown size={14} /> Excel
             </button>
@@ -362,7 +445,20 @@ export default function TeacherManagement() {
             {filteredTeachers.map(t => (
               <tr key={t.id} className="hover:bg-slate-50/50 transition-colors">
                 <td className="p-4 font-medium text-slate-900">
-                  {t.name}
+                  {editingTeacherId === t.id ? (
+                     <div className="flex items-center gap-2">
+                       <input autoFocus value={editTeacherName} onChange={e => setEditTeacherName(e.target.value)} className="px-2 py-1 border border-slate-300 rounded text-sm w-32 focus:ring-2 focus:ring-indigo-500/20" />
+                       <button onClick={() => { renameTeacher(t.name, editTeacherName); setEditingTeacherId(null); toast.success('Teacher renamed!'); }} className="p-1 text-emerald-600 bg-emerald-50 rounded hover:bg-emerald-100"><Check size={14}/></button>
+                       <button onClick={() => setEditingTeacherId(null)} className="p-1 text-slate-400 bg-slate-100 rounded hover:bg-slate-200"><X size={14}/></button>
+                     </div>
+                  ) : (
+                     <div className="flex items-center gap-2 group">
+                       <span>{t.name}</span>
+                       {canEdit && (
+                         <button onClick={() => { setEditingTeacherId(t.id); setEditTeacherName(t.name); }} className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-indigo-600 transition-all"><Edit2 size={12} /></button>
+                       )}
+                     </div>
+                  )}
                 </td>
                 <td className="p-4 align-top">
                   <div className="flex flex-col items-start gap-2">

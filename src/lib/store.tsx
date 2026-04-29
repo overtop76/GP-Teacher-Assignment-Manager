@@ -42,6 +42,8 @@ export interface AppContextType {
   renameClass: (grade: string, oldName: string, newName: string) => void;
   setTeacherProfile: (teacherId: string, profile: { isHoD?: boolean; department?: string; hodSubjects?: string[]; hodGrades?: string[] }) => void;
   importSchoolData: (jsonData: string) => boolean;
+  renameTeacher: (oldName: string, newName: string) => void;
+  addTeacher: (name: string) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -189,6 +191,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ...d.teacherProfiles[teacherId],
         ...profile,
       };
+      save(d);
+    },
+    addTeacher: (name: string) => {
+      const d = structuredClone(data);
+      getOrCreateTeacherId(d, name);
+      save(d);
+    },
+    renameTeacher: (oldName: string, newName: string) => {
+      const d = structuredClone(data);
+      const trimmedOld = oldName.trim();
+      const trimmedNew = newName.trim();
+      if (!trimmedOld || !trimmedNew || trimmedOld === trimmedNew) return;
+      
+      const tid = d.teachers[trimmedOld];
+      if (!tid) return;
+      
+      delete d.teachers[trimmedOld];
+      d.teachers[trimmedNew] = tid;
+      
+      Object.keys(d.gradeLevels).forEach(g => {
+        Object.keys(d.gradeLevels[g].classes).forEach(c => {
+          Object.keys(d.gradeLevels[g].classes[c].subjects || {}).forEach((subjId: string) => {
+            const subj = d.gradeLevels[g].classes[c].subjects[subjId];
+            if (subj.isFL) {
+              Object.keys(subj.languages || {}).forEach((l: string) => {
+                if (subj.languages[l].teacher === trimmedOld) subj.languages[l].teacher = trimmedNew;
+              });
+            } else if (subj.isArtMusic) {
+              Object.keys(subj.subSubjects || {}).forEach((s: string) => {
+                if (subj.subSubjects[s].teacher === trimmedOld) subj.subSubjects[s].teacher = trimmedNew;
+              });
+            } else if (subj.isElective) {
+              Object.keys(subj.electives || {}).forEach((e: string) => {
+                if (subj.electives[e].teacher === trimmedOld) subj.electives[e].teacher = trimmedNew;
+              });
+            } else {
+              if (subj.teacher === trimmedOld) {
+                subj.teacher = trimmedNew;
+              }
+            }
+          });
+        });
+      });
+      
       save(d);
     },
     setSubjectForGradeClass: (grade, className, subjectName, sessions, teacherName, existingSubjectId) => {
