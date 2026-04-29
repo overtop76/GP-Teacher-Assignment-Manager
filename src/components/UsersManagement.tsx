@@ -5,8 +5,8 @@ import { User, Plus, Trash2, Edit, Save, X, Shield, Lock, School, Key } from 'lu
 import { GRADE_LABELS, UserAccount } from '@/lib/types';
 
 export default function UsersManagement() {
-  const { systemData, createUser, updateUser, deleteUser, currentUser } = useAuthStore();
-  const { getClassesForAnotherSchool } = useAppStore();
+  const { systemData, createUser, updateUser, deleteUser, currentUser, activeSchoolId } = useAuthStore();
+  const { getClassesForAnotherSchool, getClassesForGrade } = useAppStore();
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [formData, setFormData] = useState<Partial<UserAccount>>({});
@@ -240,7 +240,9 @@ export default function UsersManagement() {
                                 ? systemData.schools.map(s => s.id) 
                                 : (formData.assignedSchools || []);
                               schoolsToQuery.forEach(schoolId => {
-                                 const classes = getClassesForAnotherSchool(schoolId, g);
+                                 const classes = schoolId === activeSchoolId 
+                                     ? getClassesForGrade(g) 
+                                     : getClassesForAnotherSchool(schoolId, g);
                                  classes.forEach(c => availableSectionsSet.add(c));
                               });
                               const availableSections = Array.from(availableSectionsSet).sort((a, b) => a.localeCompare(b));
@@ -298,7 +300,10 @@ export default function UsersManagement() {
                                                       ))}
                                                    </div>
                                                 )}
-                                                <input type="text" placeholder="e.g. A, B (blank = all)" value={viewClasses} onChange={(e) => handleClassChange('canViewClasses', e.target.value)} className="w-full text-xs px-2 py-1.5 border border-slate-200 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none text-slate-700 bg-slate-50 focus:bg-white transition-colors" />
+                                                <input type="text" list={`view-sec-${g}`} placeholder="e.g. A, B (blank = all)" value={viewClasses} onChange={(e) => handleClassChange('canViewClasses', e.target.value)} className="w-full text-xs px-2 py-1.5 border border-slate-200 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none text-slate-700 bg-slate-50 focus:bg-white transition-colors" />
+                                                <datalist id={`view-sec-${g}`}>
+                                                   {availableSections.map(sec => <option key={sec} value={sec} />)}
+                                                </datalist>
                                              </div>
                                           )}
                                           {canEdit && (
@@ -320,7 +325,10 @@ export default function UsersManagement() {
                                                       ))}
                                                    </div>
                                                 )}
-                                                <input type="text" placeholder="e.g. A, B (blank = all)" value={editClasses} onChange={(e) => handleClassChange('canEditClasses', e.target.value)} className="w-full text-xs px-2 py-1.5 border border-slate-200 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none text-slate-700 bg-slate-50 focus:bg-white transition-colors" />
+                                                <input type="text" list={`edit-sec-${g}`} placeholder="e.g. A, B (blank = all)" value={editClasses} onChange={(e) => handleClassChange('canEditClasses', e.target.value)} className="w-full text-xs px-2 py-1.5 border border-slate-200 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none text-slate-700 bg-slate-50 focus:bg-white transition-colors" />
+                                                <datalist id={`edit-sec-${g}`}>
+                                                   {availableSections.map(sec => <option key={sec} value={sec} />)}
+                                                </datalist>
                                              </div>
                                           )}
                                        </div>
