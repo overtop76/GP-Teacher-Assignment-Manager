@@ -1,13 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAppStore } from '@/lib/store';
 import { useAuthStore } from '@/lib/authStore';
-import { BadgeCheck, GraduationCap, X, Check, Edit2 } from 'lucide-react';
+import { BadgeCheck, GraduationCap, X, Check, Edit2, FileDown, FileUp, FileJson, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { GRADE_LABELS } from '@/lib/types';
+import * as XLSX from 'xlsx';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function TeacherManagement() {
   const { data, setTeacherProfile } = useAppStore();
   const { currentUser } = useAuthStore();
+  const [filterTeacherName, setFilterTeacherName] = useState('');
   const [filterSubject, setFilterSubject] = useState('');
   const [filterType, setFilterType] = useState('all'); // 'all', 'hod', 'only_teacher'
   const [editingHod, setEditingHod] = useState<string | null>(null);
@@ -102,6 +106,9 @@ export default function TeacherManagement() {
   // "only_teacher" means they teach only ONE subject
   let filteredTeachers = Object.values(teacherStats);
   
+  if (filterTeacherName) {
+    filteredTeachers = filteredTeachers.filter(t => t.name.toLowerCase().includes(filterTeacherName.toLowerCase()));
+  }
   if (filterSubject) {
     filteredTeachers = filteredTeachers.filter(t => t.subjects.has(filterSubject));
   }
@@ -115,6 +122,104 @@ export default function TeacherManagement() {
 
   // Sort by name
   filteredTeachers.sort((a, b) => a.name.localeCompare(b.name));
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExportExcel = () => {
+    const exportData = filteredTeachers.map(t => ({
+      'Teacher Name': t.name,
+      'Role': t.isHoD ? 'Head of Department' : 'Teacher',
+      'HoD Subjects': t.isHoD ? (t.hodSubjects.length ? t.hodSubjects.join(', ') : 'All') : 'N/A',
+      'HoD Grades': t.isHoD ? (t.hodGrades.length ? t.hodGrades.join(', ') : 'All') : 'N/A',
+      'Total Sessions': t.sessions,
+      'Subjects Taught': Array.from(t.subjects).join(', ') || 'Unassigned',
+      'Grades Taught': Array.from(t.grades).join(', ') || 'None',
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Teachers");
+    XLSX.writeFile(wb, `Teachers_Export_${new Date().toISOString().slice(0,10)}.xlsx`);
+    toast.success('Exported to Excel');
+  };
+
+  const handleExportJSON = () => {
+    const exportData = filteredTeachers.map(t => ({
+      id: t.id,
+      name: t.name,
+      isHoD: t.isHoD,
+      hodSubjects: t.hodSubjects,
+      hodGrades: t.hodGrades,
+    }));
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `teachers_export.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success('JSON Exported');
+  };
+
+  const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        if (Array.isArray(json)) {
+          let updatedCount = 0;
+          json.forEach(t => {
+            if (t.id && typeof t.isHoD === 'boolean') {
+              setTeacherProfile(t.id, {
+                isHoD: t.isHoD,
+                hodSubjects: t.hodSubjects || [],
+                hodGrades: t.hodGrades || [],
+              });
+              updatedCount++;
+            }
+          });
+          toast.success(`Updated ${updatedCount} teacher profiles`);
+        } else {
+          toast.error('Invalid JSON format');
+        }
+      } catch (err) {
+        toast.error('Failed to parse JSON file');
+      }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    doc.text("Teacher Management Report", 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
+    
+    const tableData = filteredTeachers.map(t => [
+      t.name,
+      t.isHoD ? `HoD\nSubj: ${t.hodSubjects.length ? t.hodSubjects.join(', ') : 'All'}\nGrds: ${t.hodGrades.length ? t.hodGrades.join(', ') : 'All'}` : 'Teacher',
+      t.sessions.toString(),
+      Array.from(t.subjects).join(', ') || 'Unassigned',
+      Array.from(t.grades).join(', ') || 'None'
+    ]);
+    
+    autoTable(doc, {
+      startY: 30,
+      head: [['Teacher Name', 'Role & Scope', 'Sessions', 'Subjects Taught', 'Grades Taught']],
+      body: tableData,
+      theme: 'grid',
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [63, 63, 70] },
+    });
+    
+    doc.save(`Teachers_Report_${new Date().toISOString().slice(0,10)}.pdf`);
+    toast.success('PDF Exported');
+  };
 
   const toggleHoD = (teacherId: string, currentVal: boolean) => {
     setTeacherProfile(teacherId, { isHoD: !currentVal });
@@ -188,13 +293,38 @@ export default function TeacherManagement() {
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-      <div className="p-6 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900">Teacher Management</h2>
-          <p className="text-sm text-slate-500 mt-1">Manage teacher roles and view subject assignments.</p>
+      <div className="p-6 border-b border-slate-200 bg-slate-50 flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">Teacher Management</h2>
+            <p className="text-sm text-slate-500 mt-1">Manage teacher roles and view subject assignments.</p>
+          </div>
+          
+          <div className="flex flex-wrap gap-2">
+            <button onClick={handleExportExcel} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-sm font-medium hover:bg-emerald-100 transition-colors">
+              <FileDown size={14} /> Excel
+            </button>
+            <button onClick={handleExportPDF} className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-sm font-medium hover:bg-rose-100 transition-colors">
+              <FileText size={14} /> PDF
+            </button>
+            <button onClick={handleExportJSON} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors">
+              <FileJson size={14} /> Export JSON
+            </button>
+            <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-sm font-medium hover:bg-indigo-100 transition-colors">
+              <FileUp size={14} /> Import JSON
+            </button>
+            <input type="file" accept=".json" className="hidden" ref={fileInputRef} onChange={handleImportJSON} />
+          </div>
         </div>
-        
-        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+
+        <div className="flex flex-col sm:flex-row justify-end gap-3 w-full">
+          <input 
+            type="text" 
+            placeholder="Search Teacher..." 
+            value={filterTeacherName}
+            onChange={e => setFilterTeacherName(e.target.value)}
+            className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20"
+          />
           <select 
             value={filterSubject}
             onChange={e => setFilterSubject(e.target.value)}

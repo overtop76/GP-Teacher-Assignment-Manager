@@ -295,6 +295,8 @@ export default function Reports() {
                const teacherRows = rows.filter(r => r.teacher === t);
                const tId = teacherRows.find(r => r.teacherId && r.teacherId !== 'TCH-XXX')?.teacherId;
                const tTotalSessions = teacherRows.reduce((acc, r) => acc + (r.sessions || 0), 0);
+               const tProfile = tId ? data.teacherProfiles?.[tId] : null;
+               const isHoD = tProfile?.isHoD;
                
                let statusColor = "bg-slate-100 text-slate-600";
                if (tTotalSessions > TEACHER_MAX_SESSIONS) {
@@ -308,9 +310,19 @@ export default function Reports() {
                return (
                  <div key={t} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm break-inside-avoid">
                    <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-900">
-                     <div className="flex items-center gap-3">
-                       <h3 className="font-bold text-white text-lg">{t}</h3>
-                       {tId && <span className="bg-slate-800 text-slate-300 px-2 py-0.5 rounded text-xs tracking-wider">{tId}</span>}
+                     <div className="flex flex-col gap-1">
+                       <div className="flex items-center gap-3">
+                         <h3 className="font-bold text-white text-lg">{t}</h3>
+                         {tId && <span className="bg-slate-800 text-slate-300 px-2 py-0.5 rounded text-xs tracking-wider">{tId}</span>}
+                       </div>
+                       {isHoD && (
+                          <div className="text-amber-400 text-[10px] uppercase tracking-wider font-semibold">
+                            Head of Department 
+                            <span className="text-amber-200/70 lowercase ml-1">
+                              ({tProfile.hodSubjects?.length > 0 ? tProfile.hodSubjects.join(', ') : 'All Subjects'} • {tProfile.hodGrades?.length > 0 ? tProfile.hodGrades.join(', ') : 'All Grades'})
+                            </span>
+                          </div>
+                       )}
                      </div>
                      <div className={`px-3 py-1 rounded-md text-xs font-bold ${statusColor}`}>
                        {tTotalSessions} Sess.
