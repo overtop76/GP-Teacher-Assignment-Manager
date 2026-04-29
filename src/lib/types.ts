@@ -70,4 +70,8 @@ export interface AppData {
   nextSubjectId: number;
   nextTeacherId: number;
   teachers: Record<string, string>;
+  teacherProfiles?: Record<string, {
+    isHoD: boolean;
+    department?: string;
+  }>;
 }

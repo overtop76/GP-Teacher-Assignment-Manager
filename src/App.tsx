@@ -3,12 +3,13 @@
  */
 import { AppProvider } from '@/lib/store';
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Settings, UserCheck, BarChart3, Search, Bell, LogOut, KeyRound, Building2, Users } from 'lucide-react';
+import { LayoutDashboard, Settings, UserCheck, BarChart3, Search, Bell, LogOut, KeyRound, Building2, Users, GraduationCap } from 'lucide-react';
 import Dashboard from '@/components/Dashboard';
 import Setup from '@/components/Setup';
 import Assignments from '@/components/Assignments';
 import Reports from '@/components/Reports';
 import UsersManagement from '@/components/UsersManagement';
+import TeacherManagement from '@/components/TeacherManagement';
 import { useAppStore } from '@/lib/store';
 import { AuthProvider, useAuthStore } from '@/lib/authStore';
 
@@ -87,6 +88,7 @@ function Sidebar({ activeTab, setActiveTab }: { activeTab: string, setActiveTab:
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, show: true },
     { id: 'setup', label: 'School Setup', icon: <Settings className="w-5 h-5" />, show: currentUser?.permissions.isAdmin || false },
     { id: 'users', label: 'User Management', icon: <Users className="w-5 h-5" />, show: currentUser?.permissions.isAdmin || false },
+    { id: 'teachers', label: 'Teacher Management', icon: <GraduationCap className="w-5 h-5" />, show: true },
     { id: 'assignments', label: 'Teacher Assignments', icon: <UserCheck className="w-5 h-5" />, badge: subjectCount, show: true },
     { id: 'reports', label: 'Analytics & Reports', icon: <BarChart3 className="w-5 h-5" />, show: true },
   ];
@@ -219,6 +221,7 @@ function MainApp() {
                {activeTab === 'dashboard' && <Dashboard />}
                {activeTab === 'setup' && <Setup />}
                {activeTab === 'users' && <UsersManagement />}
+               {activeTab === 'teachers' && <TeacherManagement />}
                {activeTab === 'assignments' && <Assignments />}
                {activeTab === 'reports' && <Reports />}
              </div>
