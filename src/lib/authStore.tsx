@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { SystemData, UserAccount, SchoolInfo, AUTH_STORAGE_KEY } from './types';
+import { db } from './firebase';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
 export interface AuthContextType {
   systemData: SystemData;
@@ -37,10 +39,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
+    let unmounted = false;
+    const unsub = onSnapshot(doc(db, 'systemData', 'global'), (docSnap) => {
+      if (unmounted) return;
+      if (docSnap.exists()) {
+        const parsed = docSnap.data() as SystemData;
         if (parsed.users) {
            parsed.users.forEach((u: any) => {
               if (u.permissions?.canEditGrades?.includes('K')) {
@@ -56,30 +59,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
            });
         }
         setSystemData(parsed);
-      } catch (e) {
-        console.error('Failed to parse system Auth data', e);
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(parsed));
+      } else {
+        // Run migration if exists in local storage
+        const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+        let initialData = DEFAULT_SYSTEM_DATA;
+        if (raw) {
+          try {
+            initialData = JSON.parse(raw);
+          } catch(e){}
+        }
+        setDoc(doc(db, 'systemData', 'global'), initialData);
+        setSystemData(initialData);
       }
-    }
-    
+      setIsLoaded(true);
+    }, (error) => {
+       console.error("Firebase AuthStore error", error);
+       // Fallback to local
+       const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+       if(raw) {
+           try{ setSystemData(JSON.parse(raw)); } catch(e){}
+       }
+       setIsLoaded(true);
+    });
+
+    return () => {
+      unmounted = true;
+      unsub();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isLoaded) return;
     // Check session
     const savedSession = sessionStorage.getItem('edudash_current_user');
     if (savedSession) {
       const parsedSession = JSON.parse(savedSession);
-      // need to resolve with the latest user object in case permissions changed
-      const realUser = (raw ? JSON.parse(raw) : DEFAULT_SYSTEM_DATA).users.find((u: UserAccount) => u.id === parsedSession.id);
+      const realUser = systemData.users.find((u: UserAccount) => u.id === parsedSession.id);
       if (realUser) {
         setCurrentUser(realUser);
         const schoolSession = sessionStorage.getItem('edudash_active_school');
         if (schoolSession) setActiveSchoolId(schoolSession);
       }
     }
-    
-    setIsLoaded(true);
-  }, []);
+  }, [isLoaded, systemData]);
 
   const saveSystemData = (newData: SystemData) => {
+    // Optimistic update
     setSystemData(newData);
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(newData));
+    // Persist to firebase
+    setDoc(doc(db, 'systemData', 'global'), newData).catch(e => console.error("Firebase save error", e));
   };
 
   const cbs: Omit<AuthContextType, 'systemData' | 'currentUser' | 'activeSchoolId'> = {

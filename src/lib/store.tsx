@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { AppData, FL_LANGUAGES, GRADE_LABELS, ART_MUSIC_SUBJECTS } from './types';
 import { useAuthStore } from './authStore';
+import { db } from './firebase';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
 function getDefaultGradeData() {
   return { classes: {} };
@@ -58,37 +60,72 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const STORAGE_KEY = activeSchoolId ? `eduDashData_v6_react_${activeSchoolId}` : null;
 
   useEffect(() => {
-    if (!STORAGE_KEY) {
+    if (!STORAGE_KEY || !activeSchoolId) {
        setData(initEmptyData(''));
        setIsLoaded(true);
        return;
     }
 
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        if (parsed.gradeLevels?.['K'] && !parsed.gradeLevels?.['K1']) {
-           parsed.gradeLevels['K1'] = parsed.gradeLevels['K'];
-           delete parsed.gradeLevels['K'];
-        }
-        const base = initEmptyData(schoolName);
-        const mergedGradeLevels = { ...base.gradeLevels, ...parsed.gradeLevels };
-        const merged = { ...base, ...parsed, gradeLevels: mergedGradeLevels, schoolName }; // enforce synced name
-        setData(merged);
-      } catch (e) {
-        console.error('Failed to parse app data', e);
-      }
-    } else {
-        setData(initEmptyData(schoolName));
-    }
-    setIsLoaded(true);
-  }, [STORAGE_KEY, schoolName]);
+    let unmounted = false;
+    const unsub = onSnapshot(doc(db, 'schoolsData', activeSchoolId), (docSnap) => {
+       if (unmounted) return;
+       if (docSnap.exists()) {
+          const parsed = docSnap.data() as AppData;
+          if (parsed.gradeLevels?.['K'] && !parsed.gradeLevels?.['K1']) {
+             parsed.gradeLevels['K1'] = parsed.gradeLevels['K'];
+             delete parsed.gradeLevels['K'];
+          }
+          const base = initEmptyData(schoolName);
+          const mergedGradeLevels = { ...base.gradeLevels, ...parsed.gradeLevels };
+          const merged = { ...base, ...parsed, gradeLevels: mergedGradeLevels, schoolName }; // enforce synced name
+          setData(merged);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+       } else {
+          // Migration
+          const raw = localStorage.getItem(STORAGE_KEY);
+          let initialData = initEmptyData(schoolName);
+          if (raw) {
+             try {
+                const parsed = JSON.parse(raw);
+                if (parsed.gradeLevels?.['K'] && !parsed.gradeLevels?.['K1']) {
+                   parsed.gradeLevels['K1'] = parsed.gradeLevels['K'];
+                   delete parsed.gradeLevels['K'];
+                }
+                const base = initEmptyData(schoolName);
+                const mergedGradeLevels = { ...base.gradeLevels, ...parsed.gradeLevels };
+                initialData = { ...base, ...parsed, gradeLevels: mergedGradeLevels, schoolName };
+             } catch(e){}
+          }
+          setDoc(doc(db, 'schoolsData', activeSchoolId), initialData);
+          setData(initialData);
+       }
+       setIsLoaded(true);
+    }, (error) => {
+       console.error("Firebase store error", error);
+       // Fallback
+       const raw = localStorage.getItem(STORAGE_KEY);
+       if(raw) {
+           try{
+              const parsed = JSON.parse(raw);
+              const base = initEmptyData(schoolName);
+              const mergedGradeLevels = { ...base.gradeLevels, ...parsed.gradeLevels };
+              setData({ ...base, ...parsed, gradeLevels: mergedGradeLevels, schoolName });
+           } catch(e){}
+       }
+       setIsLoaded(true);
+    });
+
+    return () => {
+      unmounted = true;
+      unsub();
+    };
+  }, [STORAGE_KEY, schoolName, activeSchoolId]);
 
   const save = (newData: AppData) => {
     setData(newData);
-    if (STORAGE_KEY) {
+    if (STORAGE_KEY && activeSchoolId) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+        setDoc(doc(db, 'schoolsData', activeSchoolId), newData).catch(e => console.error("Firebase save error", e));
     }
   };
 

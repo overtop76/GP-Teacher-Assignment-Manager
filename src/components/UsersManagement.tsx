@@ -117,8 +117,8 @@ export default function UsersManagement() {
       (user.assignedSchools || []).join('; '),
       (user.permissions?.canViewGrades || []).join('; '),
       (user.permissions?.canEditGrades || []).join('; '),
-      Object.entries(user.permissions?.canViewClasses || {}).map(([g, c]) => `${g}:[${c.join(',')}]`).join('; '),
-      Object.entries(user.permissions?.canEditClasses || {}).map(([g, c]) => `${g}:[${c.join(',')}]`).join('; '),
+      Object.entries(user.permissions?.canViewClasses || {}).map(([g, c]) => `${g}:[${(c as string[]).join(',')}]`).join('; '),
+      Object.entries(user.permissions?.canEditClasses || {}).map(([g, c]) => `${g}:[${(c as string[]).join(',')}]`).join('; '),
       user.permissions?.canPrintExport ? 'Yes' : 'No'
     ]);
 
