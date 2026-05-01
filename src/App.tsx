@@ -124,7 +124,8 @@ function Sidebar({ activeTab, setActiveTab }: { activeTab: string, setActiveTab:
                    disabled={!canSwitchSchools}
                    className={`w-full bg-slate-800 border-none text-slate-300 text-sm py-2 pl-9 pr-4 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-colors appearance-none outline-none ${!canSwitchSchools ? 'opacity-80 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
-                   {!activeSchoolId && <option value="" disabled>Select a school...</option>}
+                   {!activeSchoolId && !currentUser?.permissions.isAdmin && <option value="" disabled>Select a school...</option>}
+                   {currentUser?.permissions.isAdmin && <option value="">All Schools</option>}
                    {availableSchools.map(s => (
                        <option key={s.id} value={s.id}>{s.name || 'Unnamed School'}</option>
                    ))}

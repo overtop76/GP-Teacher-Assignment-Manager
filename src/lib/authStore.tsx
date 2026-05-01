@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { SystemData, UserAccount, SchoolInfo, AUTH_STORAGE_KEY } from './types';
 import { db } from './firebase';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
 
 export interface AuthContextType {
   systemData: SystemData;
@@ -115,26 +115,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const _addAuditLogWithUser = (user: UserAccount, action: string, details: string, currentSysData: SystemData, schoolIdOverride?: string | null) => {
      const schoolId = schoolIdOverride !== undefined ? schoolIdOverride : activeSchoolId;
-     import('firebase/firestore').then(({ doc, updateDoc, arrayUnion, setDoc: firestoreSetDoc }) => {
-        const newLog = {
-            id: Math.random().toString(36).substring(2, 11),
-            timestamp: new Date().toISOString(),
-            userId: user.id,
-            username: user.username,
-            action,
-            details,
-            schoolId: schoolId || null
-        };
-        let currentLogs = currentSysData.auditLogs || [];
-        currentLogs = [newLog, ...currentLogs].slice(0, 200);
-        const newData = { ...currentSysData, auditLogs: currentLogs };
-        saveSystemData(newData);
+     const newLog = {
+         id: Math.random().toString(36).substring(2, 11),
+         timestamp: new Date().toISOString(),
+         userId: user.id || 'unknown',
+         username: user.username || 'Unknown',
+         action,
+         details,
+         schoolId: schoolId || null
+     };
+     let currentLogs = currentSysData.auditLogs || [];
+     currentLogs = [newLog, ...currentLogs].slice(0, 200);
+     const newData = { ...currentSysData, auditLogs: currentLogs };
+     saveSystemData(newData);
 
-        const dateStr = new Date().toISOString().slice(0, 10);
-        const docRef = doc(db, 'auditLogs', dateStr);
-        updateDoc(docRef, { logs: arrayUnion(newLog) }).catch(() => {
-            firestoreSetDoc(docRef, { logs: [newLog] });
-        });
+     const dateStr = new Date().toISOString().slice(0, 10);
+     const docRef = doc(db, 'auditLogs', dateStr);
+     updateDoc(docRef, { logs: arrayUnion(newLog) }).catch(() => {
+         setDoc(docRef, { logs: [newLog] }, { merge: true });
      });
   };
 
@@ -152,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
          
          let loginSchoolId = null;
          // auto-select school if not ALL
-         if (!user.permissions.isAdmin && user.assignedSchools.length > 0 && user.assignedSchools[0] !== 'ALL') {
+         if (!user.permissions?.isAdmin && user.assignedSchools && user.assignedSchools.length > 0 && user.assignedSchools[0] !== 'ALL') {
              cbs.setActiveSchoolId(user.assignedSchools[0]);
              loginSchoolId = user.assignedSchools[0];
          }
