@@ -13,6 +13,11 @@ export default function Visualization() {
   const [chartType, setChartType] = useState<'bar' | 'pie'>('bar');
   const [metric, setMetric] = useState<'workload' | 'subjectLoad'>('workload');
   const [genderFilter, setGenderFilter] = useState<string>('all');
+  const [gradeFilter, setGradeFilter] = useState<string>('all');
+
+  const allGrades = useMemo(() => {
+    return Object.keys(data.gradeLevels || {}).sort((a, b) => a.localeCompare(b));
+  }, [data.gradeLevels]);
   
   // Calculate teacher workload data
   const teacherStats = useMemo(() => {
@@ -31,7 +36,8 @@ export default function Visualization() {
       };
     });
 
-    Object.values(data.gradeLevels).forEach((g: any) => {
+    Object.entries(data.gradeLevels).forEach(([gradeName, g]: [string, any]) => {
+      if (gradeFilter !== 'all' && gradeName !== gradeFilter) return;
       Object.values(g.classes || {}).forEach((c: any) => {
         Object.values(c.subjects || {}).forEach((subj: any) => {
           if (subj.teacher && stats[subj.teacher]) {
@@ -63,13 +69,14 @@ export default function Visualization() {
     });
 
     return Object.values(stats);
-  }, [data]);
+  }, [data, gradeFilter]);
 
   // Calculate subject load data
   const subjectStats = useMemo(() => {
     const stats: Record<string, number> = {};
 
-    Object.values(data.gradeLevels).forEach((g: any) => {
+    Object.entries(data.gradeLevels).forEach(([gradeName, g]: [string, any]) => {
+      if (gradeFilter !== 'all' && gradeName !== gradeFilter) return;
       Object.values(g.classes || {}).forEach((c: any) => {
         Object.entries(c.subjects || {}).forEach(([sName, subj]: [string, any]) => {
           if (!['FL', 'Art/Music'].includes(sName) && !subj.isElective) {
@@ -95,12 +102,19 @@ export default function Visualization() {
     });
 
     return Object.entries(stats).map(([name, sessions]) => ({ name, sessions })).sort((a, b) => b.sessions - a.sessions);
-  }, [data]);
+  }, [data, gradeFilter]);
 
   const filteredTeacherStats = useMemo(() => {
-    if (genderFilter === 'all') return teacherStats;
-    return teacherStats.filter(t => t.gender === genderFilter);
-  }, [teacherStats, genderFilter]);
+    let result = teacherStats;
+    if (gradeFilter !== 'all') {
+      result = result.filter(t => t.sessions > 0);
+    }
+    if (genderFilter !== 'all') {
+      result = result.filter(t => t.gender === genderFilter);
+    }
+    // Sort by sessions descending to make chart look better
+    return result.sort((a, b) => b.sessions - a.sessions);
+  }, [teacherStats, genderFilter, gradeFilter]);
 
   const chartData = metric === 'workload' ? filteredTeacherStats : subjectStats;
   const xAxisKey = 'name';
@@ -116,6 +130,17 @@ export default function Visualization() {
           </div>
           
           <div className="flex flex-wrap items-center gap-3">
+            <select
+              value={gradeFilter}
+              onChange={(e) => setGradeFilter(e.target.value)}
+              className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:ring-2 focus:ring-indigo-500/20"
+            >
+              <option value="all">All Grades</option>
+              {allGrades.map(g => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
+
             <select
               value={metric}
               onChange={(e) => setMetric(e.target.value as 'workload' | 'subjectLoad')}
