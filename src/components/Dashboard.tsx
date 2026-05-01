@@ -21,6 +21,7 @@ export default function Dashboard() {
   
   let totalClasses = 0;
   let totalSubjects = 0;
+  let totalSessionsSum = 0;
   const allTeachers = new Set<string>();
   const teachersPerSubject: Record<string, Set<string>> = {};
   const sessionsPerSubject: Record<string, number> = {};
@@ -75,10 +76,13 @@ export default function Dashboard() {
       // We process subjects, applying the subject filter
       
       Object.entries(subjects).forEach(([sId, subj]: [string, any]) => {
+        let isMatched = false;
+
         if (subj.isFL) {
           Object.entries(subj.languages || {}).forEach(([langId, lang]: [string, any]) => {
             if (selectedSubjects.length > 0 && !selectedSubjects.includes(langId)) return;
             totalSubjects++;
+            isMatched = true;
             sessionsPerSubject[langId] = (sessionsPerSubject[langId] || 0) + (subj.sessions || 0);
             if (lang.teacher) {
                allTeachers.add(lang.teacher);
@@ -90,6 +94,7 @@ export default function Dashboard() {
           Object.entries(subj.subSubjects || {}).forEach(([subId, subp]: [string, any]) => {
             if (selectedSubjects.length > 0 && !selectedSubjects.includes(subId)) return;
             totalSubjects++;
+            isMatched = true;
             sessionsPerSubject[subId] = (sessionsPerSubject[subId] || 0) + (subj.sessions || 0);
             if (subp.teacher) {
                allTeachers.add(subp.teacher);
@@ -101,12 +106,17 @@ export default function Dashboard() {
           const name = subj.isElective ? subj.name || sId : sId;
           if (selectedSubjects.length > 0 && !selectedSubjects.includes(name)) return;
           totalSubjects++;
+          isMatched = true;
           sessionsPerSubject[name] = (sessionsPerSubject[name] || 0) + (subj.sessions || 0);
           if (subj.teacher) {
              allTeachers.add(subj.teacher);
              if (!teachersPerSubject[name]) teachersPerSubject[name] = new Set();
              teachersPerSubject[name].add(subj.teacher);
           }
+        }
+        
+        if (isMatched) {
+           totalSessionsSum += (subj.sessions || 0);
         }
       });
     });
@@ -151,7 +161,8 @@ export default function Dashboard() {
     { icon: <BookOpen className="w-5 h-5" />, value: totalSubjects, label: 'Assignments' },
     { icon: <Presentation className="w-5 h-5" />, value: totalTeachers, label: 'Unique Teachers' },
     { icon: <Presentation className="w-5 h-5 text-amber-500" />, value: totalHoDs, label: 'Assigned HoDs' },
-    { icon: <Hash className="w-5 h-5" />, value: data.nextSubjectId - 1, label: 'Subject IDs' }
+    { icon: <Hash className="w-5 h-5" />, value: data.nextSubjectId - 1, label: 'Subject IDs' },
+    { icon: <Hash className="w-5 h-5 text-indigo-500" />, value: totalSessionsSum, label: 'Total Sessions' }
   ];
 
   const alerts: { type: 'ok'|'warn'|'danger', msg: string }[] = [];
