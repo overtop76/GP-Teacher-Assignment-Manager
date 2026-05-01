@@ -10,7 +10,7 @@ export default function Help() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm space-y-6">
+         <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm space-y-6">
            <div className="flex items-center gap-3 mb-2 border-b border-slate-100 pb-4">
               <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-lg">
                  <GraduationCap className="w-6 h-6" />
@@ -20,19 +20,19 @@ export default function Help() {
            
            <div className="space-y-4">
               <p className="text-slate-600 text-sm leading-relaxed">
-                 The Teacher Management tab allows you to configure the profile and constraints of each teacher in your school.
+                 The Teacher Management tab allows you to configure teacher profiles, roles, assignments, and export/import data.
               </p>
               
               <ul className="space-y-3 text-sm text-slate-600 list-disc pl-5">
-                 <li><strong>Add Teachers:</strong> Click "Add Teacher" and provide their Name, Initial, Minimum/Maximum Sessions per week, and designate if they are a Head of Department (HoD).</li>
-                 <li><strong>Session Limits:</strong> The Minimum and Maximum sessions serve as constraints when you assign classes later. If a teacher's assignments drop below the minimum or exceed the maximum, the system will raise an alert in the Dashboard and Assignments views.</li>
-                 <li><strong>Heads of Department:</strong> Marking a teacher as "HoD" helps track leadership roles in the Dashboard Summary.</li>
-                 <li><strong>Edit/Delete:</strong> You can edit a teacher's details or remove them. Note: If you remove a teacher, they will be unassigned from all their current subjects.</li>
+                 <li><strong>Add Teachers & Quick Assign:</strong> Click "Add Teacher" to configure a teacher. You can optionally make a quick assignment, setting them to teach a Standard Subject, an FL (Foreign Language) Block, an Art/Music Block, or a Custom Elective Block for a specific grade and class.</li>
+                 <li><strong>Head of Department (HoD):</strong> Toggle the badge to mark a teacher as HoD. You can refine their scope by assigning specific subjects and grades they oversee.</li>
+                 <li><strong>Import & Export:</strong> Export your teacher list as Excel, PDF, or JSON. You can also import a JSON payload to modify roles or update records in bulk.</li>
+                 <li><strong>Complex Subjects:</strong> Assigning to FL Blocks, Art/Music Blocks, or custom Electives automatically handles assigning to the right sub-subject or language, keeping standard subjects separate.</li>
               </ul>
            </div>
         </div>
 
-        <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm space-y-6">
+         <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm space-y-6">
            <div className="flex items-center gap-3 mb-2 border-b border-slate-100 pb-4">
               <div className="p-2.5 bg-blue-50 text-blue-600 rounded-lg">
                  <UserCheck className="w-6 h-6" />
@@ -49,8 +49,8 @@ export default function Help() {
                  <li><strong>Select Grade & Class:</strong> Navigate through the configured grades and select a class.</li>
                  <li><strong>Subject Grid:</strong> You will see a list of subjects assigned to that class (configured in School Setup). For each subject, you can either assign a teacher or leave it <code>Unassigned</code>.</li>
                  <li><strong>Sub-subjects & Languages:</strong> For grouped subjects like First Language or Art/Music, you must assign a teacher to each specific language or sub-subject (e.g., assigning a teacher to Arabic and another to Spanish).</li>
-                 <li><strong>Workload Feedback:</strong> Each teacher in the dropdown shows their current session count / maximum sessions, giving you real-time visibility into their workload.</li>
-                 <li><strong>Clear All:</strong> You can bulk-clear all teachers in a class.</li>
+                 <li><strong>Custom Electives:</strong> You can assign multiple electives per class. Click "Assign Elective", name the Elective Block, define the sub-subjects (e.g. Physics, Biology), and choose teachers for each.</li>
+                 <li><strong>Copy Assignments:</strong> Use "Copy to another school" or "Copy to another class" to duplicate class structural layouts instantly, preserving or shedding teacher info seamlessly.</li>
               </ul>
            </div>
         </div>
@@ -69,16 +69,15 @@ export default function Help() {
               </p>
               
               <ul className="space-y-3 text-sm text-slate-600 list-disc pl-5">
-                 <li><strong>Teacher Workload Report:</strong> Lists every teacher, showing how many sessions they teach vs. their min/max limits, highlighting underutilized or overutilized teachers.</li>
+                 <li><strong>Teacher Workload Report:</strong> Lists every teacher, showing how many sessions they teach vs. their target load.</li>
                  <li><strong>Unassigned Subjects Report:</strong> Helps you quickly identify which grades and classes lack a teacher for specific subjects.</li>
-                 <li><strong>Grade/Class Distribution:</strong> Summarizes the number of subjects and sessions in every configured class.</li>
-                 <li><strong>Subject Teacher Load:</strong> Provides a breakdown of which teachers are teaching what subjects, and how many sessions they dedicate to each subject.</li>
-                 <li><strong>Export to CSV:</strong> Several tables provide an easy mechanism to export the data straight into CSV format for formatting in Excel or Google Sheets.</li>
+                 <li><strong>Subject & Elective Summaries:</strong> Detailed breakdowns regarding how many sessions each parallel block utilizes.</li>
+                 <li><strong>Export to PDF & JSON:</strong> Print these dashboards directly or grab JSON representations of assignment snapshots.</li>
               </ul>
            </div>
         </div>
 
-        <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm space-y-6">
+         <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm space-y-6">
            <div className="flex items-center gap-3 mb-2 border-b border-slate-100 pb-4">
               <div className="p-2.5 bg-slate-50 text-slate-600 rounded-lg">
                  <Settings className="w-6 h-6" />
@@ -93,9 +92,9 @@ export default function Help() {
               
               <ul className="space-y-3 text-sm text-slate-600 list-disc pl-5">
                  <li><strong>Create Classes:</strong> Navigate to any grade to add a class (e.g. Class A, Class B).</li>
-                 <li><strong>Subject Checkbox Grid:</strong> Select which subjects are taught in each class, and set the weekly session counts.</li>
-                 <li><strong>Bulk Apply:</strong> Configure subjects and sessions for one class, then bulk-apply that configuration to all other classes in the same grade.</li>
-                 <li><strong>Dashboard:</strong> Summarizes all configured metrics: number of assignments, HoDs, Unique Teachers, and session alerts where class totals deviate. Dashboard supports multi-select filters on Grades, Classes, and Subjects.</li>
+                 <li><strong>Subject Configuration:</strong> Select which subjects are taught in each class, and set the weekly session counts. Support for Standard Subjects, FL Blocks, Art/Music Blocks, and Electives.</li>
+                 <li><strong>Bulk Apply & Copy Class:</strong> Configure subjects for one class, then bulk-apply to the whole grade, or selectively copy subjects across grades and classes.</li>
+                 <li><strong>Multi-School Support:</strong> If you represent a conglomerate or manage multiple schools, you can create new schools, load their data securely via Firebase, and switch between them.</li>
               </ul>
            </div>
         </div>
