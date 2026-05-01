@@ -3,13 +3,14 @@
  */
 import { AppProvider } from '@/lib/store';
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Settings, UserCheck, BarChart3, Search, Bell, LogOut, KeyRound, Building2, Users, GraduationCap } from 'lucide-react';
+import { LayoutDashboard, Settings, UserCheck, BarChart3, Search, Bell, LogOut, KeyRound, Building2, Users, GraduationCap, HelpCircle } from 'lucide-react';
 import Dashboard from '@/components/Dashboard';
 import Setup from '@/components/Setup';
 import Assignments from '@/components/Assignments';
 import Reports from '@/components/Reports';
 import UsersManagement from '@/components/UsersManagement';
 import TeacherManagement from '@/components/TeacherManagement';
+import Help from '@/components/Help';
 import { useAppStore } from '@/lib/store';
 import { AuthProvider, useAuthStore } from '@/lib/authStore';
 
@@ -91,6 +92,7 @@ function Sidebar({ activeTab, setActiveTab }: { activeTab: string, setActiveTab:
     { id: 'teachers', label: 'Teacher Management', icon: <GraduationCap className="w-5 h-5" />, show: true },
     { id: 'assignments', label: 'Teacher Assignments', icon: <UserCheck className="w-5 h-5" />, badge: subjectCount, show: true },
     { id: 'reports', label: 'Analytics & Reports', icon: <BarChart3 className="w-5 h-5" />, show: true },
+    { id: 'help', label: 'Help & Guide', icon: <HelpCircle className="w-5 h-5" />, show: true },
   ];
 
   const canSwitchSchools = currentUser?.permissions.isAdmin || currentUser?.assignedSchools?.includes('ALL');
@@ -224,6 +226,7 @@ function MainApp() {
                {activeTab === 'teachers' && <TeacherManagement />}
                {activeTab === 'assignments' && <Assignments />}
                {activeTab === 'reports' && <Reports />}
+               {activeTab === 'help' && <Help />}
              </div>
           )}
         </div>
