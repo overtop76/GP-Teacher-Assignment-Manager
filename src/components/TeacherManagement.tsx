@@ -307,6 +307,7 @@ export default function TeacherManagement() {
     const [electiveBlock, setElectiveBlock] = useState<string>('');
     const [electiveName, setElectiveName] = useState<string>('');
     const [sessions, setSessions] = useState(1);
+    const [gender, setGender] = useState<'Male'|'Female'|''>('');
 
     const availableClasses = grade ? Object.keys(data.gradeLevels[grade]?.classes || {}).sort((a,b)=>a.localeCompare(b)) : [];
     
@@ -349,7 +350,7 @@ export default function TeacherManagement() {
     const handleSave = () => {
       const tName = name.trim();
       if (!tName) return toast.error('Teacher name is required');
-      addTeacher(tName);
+      addTeacher(tName, gender || undefined);
       let assigned = false;
       if (grade && cls && sessions > 0) {
          if (subjectType === 'standard' && subject.trim()) {
@@ -404,9 +405,19 @@ export default function TeacherManagement() {
             </button>
           </div>
           <div className="p-6 space-y-4 bg-slate-50">
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Teacher Name <span className="text-red-500">*</span></label>
-              <input type="text" autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="e.g. John Doe" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20" />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Teacher Name <span className="text-red-500">*</span></label>
+                <input type="text" autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="e.g. John Doe" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Gender</label>
+                <select value={gender} onChange={e => setGender(e.target.value as 'Male' | 'Female' | '')} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20">
+                  <option value="">-- Select --</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </div>
             </div>
             
             <div className="pt-4 border-t border-slate-200">

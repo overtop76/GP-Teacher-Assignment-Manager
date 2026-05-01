@@ -46,7 +46,7 @@ export interface AppContextType {
   importSchoolData: (jsonData: string) => boolean;
   patchSchoolData: (partialData: Partial<AppData>) => void;
   renameTeacher: (oldName: string, newName: string) => void;
-  addTeacher: (name: string) => void;
+  addTeacher: (name: string, gender?: 'Male' | 'Female') => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -234,9 +234,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       };
       save(d);
     },
-    addTeacher: (name: string) => {
+    addTeacher: (name: string, gender?: 'Male' | 'Female') => {
       const d = structuredClone(data);
-      getOrCreateTeacherId(d, name);
+      const tid = getOrCreateTeacherId(d, name);
+      if (tid && gender) {
+        if (!d.teacherProfiles) d.teacherProfiles = {};
+        if (!d.teacherProfiles[tid]) d.teacherProfiles[tid] = { isHoD: false, department: '', hodSubjects: [], hodGrades: [] };
+        d.teacherProfiles[tid].gender = gender;
+      }
       save(d);
     },
     renameTeacher: (oldName: string, newName: string) => {
