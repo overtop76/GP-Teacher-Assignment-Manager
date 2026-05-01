@@ -3,13 +3,13 @@ import { useAppStore } from '@/lib/store';
 import { useAuthStore } from '@/lib/authStore';
 import { BadgeCheck, GraduationCap, X, Check, Edit2, FileDown, FileUp, FileJson, FileText, UserPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { GRADE_LABELS } from '@/lib/types';
+import { GRADE_LABELS, FL_LANGUAGES, ART_MUSIC_SUBJECTS } from '@/lib/types';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 export default function TeacherManagement() {
-  const { data, setTeacherProfile, renameTeacher, addTeacher, setSubjectForGradeClass } = useAppStore();
+  const { data, setTeacherProfile, renameTeacher, addTeacher, setSubjectForGradeClass, setFLSubject, setElectiveSubject, setArtMusicSubject } = useAppStore();
   const { currentUser } = useAuthStore();
   const [filterTeacherName, setFilterTeacherName] = useState('');
   const [filterSubject, setFilterSubject] = useState('');
@@ -300,34 +300,95 @@ export default function TeacherManagement() {
     const [name, setName] = useState('');
     const [grade, setGrade] = useState('');
     const [cls, setCls] = useState('');
+    const [subjectType, setSubjectType] = useState<'standard'|'fl'|'elective'|'artmusic'>('standard');
     const [subject, setSubject] = useState('');
+    const [flLanguage, setFlLanguage] = useState<string>('French');
+    const [amSubject, setAmSubject] = useState<string>('Art');
+    const [electiveBlock, setElectiveBlock] = useState<string>('');
+    const [electiveName, setElectiveName] = useState<string>('');
     const [sessions, setSessions] = useState(1);
 
     const availableClasses = grade ? Object.keys(data.gradeLevels[grade]?.classes || {}).sort((a,b)=>a.localeCompare(b)) : [];
     
     const allSubjects = new Set<string>();
-    Object.values(data.gradeLevels).forEach((g: any) => {
-      Object.values(g.classes || {}).forEach((c: any) => {
+    const allElectiveBlocks = new Set<string>();
+    Object.entries(data.gradeLevels).forEach(([gName, g]: [string, any]) => {
+      if (grade && gName !== grade) return;
+      Object.entries(g.classes || {}).forEach(([cName, c]: [string, any]) => {
+        if (cls && cName !== cls) return;
         Object.keys(c.subjects || {}).forEach((subjId: string) => {
           if (!['FL', 'Art/Music'].includes(subjId)) {
             const subj = c.subjects[subjId];
             if (!subj.isElective) {
               allSubjects.add(subjId);
+            } else {
+              allElectiveBlocks.add(subjId);
             }
           }
         });
       });
     });
     const subjectsList = Array.from(allSubjects).sort();
+    const electiveBlocksList = Array.from(allElectiveBlocks).sort();
+    const electiveNamesForBlock = new Set<string>();
+    if (electiveBlock) {
+      Object.entries(data.gradeLevels).forEach(([gName, g]: [string, any]) => {
+        if (grade && gName !== grade) return;
+        Object.entries(g.classes || {}).forEach(([cName, c]: [string, any]) => {
+          if (cls && cName !== cls) return;
+          if (c.subjects && c.subjects[electiveBlock] && c.subjects[electiveBlock].isElective) {
+            Object.keys(c.subjects[electiveBlock].electives || {}).forEach((elName) => {
+              electiveNamesForBlock.add(elName);
+            });
+          }
+        });
+      });
+    }
+    const electiveNamesList = Array.from(electiveNamesForBlock).sort();
     
     const handleSave = () => {
       const tName = name.trim();
       if (!tName) return toast.error('Teacher name is required');
       addTeacher(tName);
       let assigned = false;
-      if (grade && cls && subject && sessions > 0) {
-         setSubjectForGradeClass(grade, cls, subject.trim(), sessions, tName, undefined);
-         assigned = true;
+      if (grade && cls && sessions > 0) {
+         if (subjectType === 'standard' && subject.trim()) {
+            setSubjectForGradeClass(grade, cls, subject.trim(), sessions, tName, undefined);
+            assigned = true;
+         } else if (subjectType === 'fl' && flLanguage.trim()) {
+            const existingFL = data.gradeLevels[grade]?.classes[cls]?.subjects['FL'];
+            const langTeachers: Record<string, string> = {};
+            if (existingFL?.languages) {
+              Object.entries(existingFL.languages).forEach(([l, val]: any) => {
+                 langTeachers[l] = val.teacher;
+              });
+            }
+            langTeachers[flLanguage] = tName;
+            setFLSubject(grade, cls, Math.max(sessions, existingFL?.sessions || sessions), langTeachers, existingFL?.id);
+            assigned = true;
+         } else if (subjectType === 'elective' && electiveBlock.trim() && electiveName.trim()) {
+            const existingElective = data.gradeLevels[grade]?.classes[cls]?.subjects[electiveBlock.trim()];
+            const electivesTeachers: Record<string, string> = {};
+            if (existingElective?.electives) {
+              Object.entries(existingElective.electives).forEach(([e, val]: any) => {
+                 electivesTeachers[e] = val.teacher;
+              });
+            }
+            electivesTeachers[electiveName.trim()] = tName;
+            setElectiveSubject(grade, cls, electiveBlock.trim(), Math.max(sessions, existingElective?.sessions || sessions), electivesTeachers, existingElective?.id);
+            assigned = true;
+         } else if (subjectType === 'artmusic' && amSubject.trim()) {
+            const existingAM = data.gradeLevels[grade]?.classes[cls]?.subjects['Art/Music'];
+            const amTeachers: Record<string, string> = {};
+            if (existingAM?.subSubjects) {
+              Object.entries(existingAM.subSubjects).forEach(([s, val]: any) => {
+                 amTeachers[s] = val.teacher;
+              });
+            }
+            amTeachers[amSubject] = tName;
+            setArtMusicSubject(grade, cls, Math.max(sessions, existingAM?.sessions || sessions), amTeachers, existingAM?.id);
+            assigned = true;
+         }
       }
       toast.success(assigned ? 'Teacher added and assigned!' : 'Teacher added successfully!');
       setShowAddModal(false);
@@ -366,15 +427,74 @@ export default function TeacherManagement() {
                    </select>
                  </div>
                </div>
-               <div className="grid grid-cols-2 gap-3">
-                 <div>
-                   <label className="block text-xs font-semibold text-slate-700 mb-1">Subject</label>
-                   <input type="text" list="teacher_subject_list" value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Math" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20" />
-                   <datalist id="teacher_subject_list">
-                     {subjectsList.map(s => <option key={s} value={s} />)}
-                   </datalist>
+
+               <div className="mb-3 space-y-2">
+                 <label className="block text-xs font-semibold text-slate-700">Subject Type</label>
+                 <div className="flex gap-4">
+                   <label className="flex items-center gap-1.5 cursor-pointer text-sm text-slate-700">
+                     <input type="radio" checked={subjectType === 'standard'} onChange={() => setSubjectType('standard')} className="w-4 h-4 text-indigo-600 focus:ring-indigo-500" />
+                     Standard
+                   </label>
+                   <label className="flex items-center gap-1.5 cursor-pointer text-sm text-slate-700">
+                     <input type="radio" checked={subjectType === 'fl'} onChange={() => setSubjectType('fl')} className="w-4 h-4 text-indigo-600 focus:ring-indigo-500" />
+                     FL Block
+                   </label>
+                   <label className="flex items-center gap-1.5 cursor-pointer text-sm text-slate-700">
+                     <input type="radio" checked={subjectType === 'elective'} onChange={() => setSubjectType('elective')} className="w-4 h-4 text-indigo-600 focus:ring-indigo-500" />
+                     Elective Block
+                   </label>
+                   <label className="flex items-center gap-1.5 cursor-pointer text-sm text-slate-700">
+                     <input type="radio" checked={subjectType === 'artmusic'} onChange={() => setSubjectType('artmusic')} className="w-4 h-4 text-indigo-600 focus:ring-indigo-500" />
+                     Art/Music Block
+                   </label>
                  </div>
-                 <div>
+               </div>
+
+               <div className="grid grid-cols-2 gap-3">
+                 {subjectType === 'standard' && (
+                   <div>
+                     <label className="block text-xs font-semibold text-slate-700 mb-1">Subject Name</label>
+                     <input type="text" list="teacher_subject_list" value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Math" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20" />
+                     <datalist id="teacher_subject_list">
+                       {subjectsList.map(s => <option key={s} value={s} />)}
+                     </datalist>
+                   </div>
+                 )}
+                 {subjectType === 'fl' && (
+                   <div>
+                     <label className="block text-xs font-semibold text-slate-700 mb-1">Language</label>
+                     <select value={flLanguage} onChange={e => setFlLanguage(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20">
+                       {FL_LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
+                     </select>
+                   </div>
+                 )}
+                 {subjectType === 'artmusic' && (
+                   <div>
+                     <label className="block text-xs font-semibold text-slate-700 mb-1">Art/Music</label>
+                     <select value={amSubject} onChange={e => setAmSubject(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20">
+                       {ART_MUSIC_SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+                     </select>
+                   </div>
+                 )}
+                 {subjectType === 'elective' && (
+                   <div className="col-span-2 grid grid-cols-2 gap-3 mb-2">
+                     <div>
+                       <label className="block text-xs font-semibold text-slate-700 mb-1">Block Name</label>
+                       <input type="text" list="elective_blocks_list" value={electiveBlock} onChange={e => setElectiveBlock(e.target.value)} placeholder="e.g. Science Block" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20" />
+                       <datalist id="elective_blocks_list">
+                         {electiveBlocksList.map(b => <option key={b} value={b} />)}
+                       </datalist>
+                     </div>
+                     <div>
+                       <label className="block text-xs font-semibold text-slate-700 mb-1">Elective Name</label>
+                       <input type="text" list="elective_names_list" value={electiveName} onChange={e => setElectiveName(e.target.value)} placeholder="e.g. Physics" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20" />
+                       <datalist id="elective_names_list">
+                         {electiveNamesList.map(n => <option key={n} value={n} />)}
+                       </datalist>
+                     </div>
+                   </div>
+                 )}
+                 <div className={subjectType === 'elective' ? "col-span-2" : ""}>
                    <label className="block text-xs font-semibold text-slate-700 mb-1">Sessions per week</label>
                    <input type="number" min="1" max="20" value={sessions} onChange={e => setSessions(parseInt(e.target.value)||1)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20" />
                  </div>
