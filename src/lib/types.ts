@@ -77,5 +77,6 @@ export interface AppData {
     department?: string;
     hodSubjects?: string[];
     hodGrades?: string[];
+    gender?: 'Male' | 'Female';
   }>;
 }

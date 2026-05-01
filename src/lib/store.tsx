@@ -42,7 +42,7 @@ export interface AppContextType {
   deleteClass: (grade: string, className: string) => void;
   renameGrade: (oldName: string, newName: string) => void;
   renameClass: (grade: string, oldName: string, newName: string) => void;
-  setTeacherProfile: (teacherId: string, profile: { isHoD?: boolean; department?: string; hodSubjects?: string[]; hodGrades?: string[] }) => void;
+  setTeacherProfile: (teacherId: string, profile: { isHoD?: boolean; department?: string; hodSubjects?: string[]; hodGrades?: string[]; gender?: 'Male' | 'Female' }) => void;
   importSchoolData: (jsonData: string) => boolean;
   renameTeacher: (oldName: string, newName: string) => void;
   addTeacher: (name: string) => void;
@@ -221,7 +221,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         save(d);
       }
     },
-    setTeacherProfile: (teacherId: string, profile: { isHoD?: boolean; department?: string; hodSubjects?: string[]; hodGrades?: string[] }) => {
+    setTeacherProfile: (teacherId: string, profile: { isHoD?: boolean; department?: string; hodSubjects?: string[]; hodGrades?: string[]; gender?: 'Male' | 'Female' }) => {
       const d = structuredClone(data);
       if (!d.teacherProfiles) d.teacherProfiles = {};
       d.teacherProfiles[teacherId] = {

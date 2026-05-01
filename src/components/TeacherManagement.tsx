@@ -34,6 +34,7 @@ export default function TeacherManagement() {
     department: string,
     hodSubjects: string[],
     hodGrades: string[],
+    gender?: 'Male' | 'Female',
   }> = {};
 
   const teachersList = Object.keys(data.teachers || {});
@@ -50,6 +51,7 @@ export default function TeacherManagement() {
       department: data.teacherProfiles?.[tId]?.department || '',
       hodSubjects: data.teacherProfiles?.[tId]?.hodSubjects || [],
       hodGrades: data.teacherProfiles?.[tId]?.hodGrades || [],
+      gender: data.teacherProfiles?.[tId]?.gender,
     };
   });
 
@@ -453,6 +455,7 @@ export default function TeacherManagement() {
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500 font-semibold">
               <th className="p-4">Teacher Name</th>
+              <th className="p-4 text-center">Gender</th>
               <th className="p-4">Role</th>
               <th className="p-4 text-center">Total Sessions</th>
               <th className="p-4">Subjects Taught</th>
@@ -477,6 +480,18 @@ export default function TeacherManagement() {
                        )}
                      </div>
                   )}
+                </td>
+                <td className="p-4 align-top">
+                   <select 
+                     value={t.gender || ''}
+                     onChange={(e) => setTeacherProfile(t.id, { gender: e.target.value as 'Male' | 'Female' })}
+                     disabled={!canEdit}
+                     className="px-2 py-1 border border-slate-200 rounded text-xs bg-white text-slate-700"
+                   >
+                     <option value="">-</option>
+                     <option value="Male">Male</option>
+                     <option value="Female">Female</option>
+                   </select>
                 </td>
                 <td className="p-4 align-top">
                   <div className="flex flex-col items-start gap-2">

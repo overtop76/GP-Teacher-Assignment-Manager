@@ -13,6 +13,7 @@ export default function Dashboard() {
   let totalClasses = 0;
   let totalSubjects = 0;
   const allTeachers = new Set<string>();
+  const teachersPerSubject: Record<string, Set<string>> = {};
   const classListForTable: { grade: string, className: string, subjectsCount: number, totalSessions: number }[] = [];
 
   GRADE_LABELS.forEach(g => {
@@ -25,17 +26,30 @@ export default function Dashboard() {
       const tSessions = getTotalSessionsForClass(g, cls);
       classListForTable.push({ grade: g, className: cls, subjectsCount, totalSessions: tSessions });
 
-      Object.values(subjects).forEach((subj: any) => {
+      Object.entries(subjects).forEach(([sId, subj]: [string, any]) => {
         if (subj.isFL) {
-          Object.values(subj.languages || {}).forEach((lang: any) => {
-            if (lang.teacher) allTeachers.add(lang.teacher);
+          Object.entries(subj.languages || {}).forEach(([langId, lang]: [string, any]) => {
+            if (lang.teacher) {
+               allTeachers.add(lang.teacher);
+               if (!teachersPerSubject[langId]) teachersPerSubject[langId] = new Set();
+               teachersPerSubject[langId].add(lang.teacher);
+            }
           });
         } else if (subj.isArtMusic) {
-          Object.values(subj.subSubjects || {}).forEach((subp: any) => {
-            if (subp.teacher) allTeachers.add(subp.teacher);
+          Object.entries(subj.subSubjects || {}).forEach(([subId, subp]: [string, any]) => {
+            if (subp.teacher) {
+               allTeachers.add(subp.teacher);
+               if (!teachersPerSubject[subId]) teachersPerSubject[subId] = new Set();
+               teachersPerSubject[subId].add(subp.teacher);
+            }
           });
         } else {
-          if (subj.teacher) allTeachers.add(subj.teacher);
+          if (subj.teacher) {
+             allTeachers.add(subj.teacher);
+             const name = subj.isElective ? subj.name : sId;
+             if (!teachersPerSubject[name]) teachersPerSubject[name] = new Set();
+             teachersPerSubject[name].add(subj.teacher);
+          }
         }
       });
     });
@@ -130,7 +144,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
           <h3 className="font-bold text-sm text-slate-900 uppercase tracking-widest mb-4">Quick Summary</h3>
           {totalClasses === 0 ? (
@@ -138,6 +152,20 @@ export default function Dashboard() {
           ) : (
             <p className="text-slate-600 text-sm leading-relaxed">{configuredGrades} grades configured with {totalClasses} classes. Managing {totalSubjects} subjects across {totalTeachers} teachers ({totalHoDs} Heads of Department).</p>
           )}
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 overflow-hidden flex flex-col">
+          <h3 className="font-bold text-sm text-slate-900 uppercase tracking-widest mb-4">Teachers Per Subject</h3>
+          <div className="space-y-2 overflow-y-auto max-h-[250px] pr-2">
+            {Object.entries(teachersPerSubject).length === 0 ? (
+               <p className="text-slate-500 text-sm">No teachers assigned yet.</p>
+            ) : Object.entries(teachersPerSubject).sort((a, b) => b[1].size - a[1].size).map(([subj, teachers]) => (
+               <div key={subj} className="flex justify-between items-center bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
+                  <span className="font-medium text-sm text-slate-700">{subj}</span>
+                  <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">{teachers.size}</span>
+               </div>
+            ))}
+          </div>
         </div>
 
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 overflow-hidden flex flex-col">
