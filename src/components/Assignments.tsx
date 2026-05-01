@@ -10,6 +10,9 @@ export default function Assignments() {
   const { data, getClassesForGrade, getTotalSessionsForClass, setSubjectForGradeClass, deleteSubjectForGradeClass, setFLSubject, setArtMusicSubject, setElectiveSubject, copySubjectsToClass, copySubjectsToAnotherSchool, getClassesForAnotherSchool } = useAppStore();
   const { currentUser, systemData, activeSchoolId } = useAuthStore();
   
+  const hasNoGradeAccessControl = (!currentUser?.permissions?.canEditGrades?.length && !currentUser?.permissions?.canViewGrades?.length);
+  const isAdmin = currentUser?.permissions.isAdmin;
+
   const [selectedGrade, setSelectedGrade] = useState<string>('');
   const [selectedClass, setSelectedClass] = useState<string>('');
 
@@ -66,9 +69,6 @@ export default function Assignments() {
     
   const totalSessions = selectedGrade && selectedClass ? getTotalSessionsForClass(selectedGrade, selectedClass) : 0;
   
-  const hasNoGradeAccessControl = (!currentUser?.permissions?.canEditGrades?.length && !currentUser?.permissions?.canViewGrades?.length);
-
-  const isAdmin = currentUser?.permissions.isAdmin;
   const canEditSelectedGrade = (() => {
       if (isAdmin || hasNoGradeAccessControl) return true;
       if (selectedGrade && currentUser?.permissions.canEditGrades?.includes(selectedGrade)) {
