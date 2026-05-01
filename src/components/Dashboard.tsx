@@ -1,12 +1,21 @@
+import React, { useState, useMemo } from 'react';
 import { useAppStore } from '@/lib/store';
 import { useAuthStore } from '@/lib/authStore';
 import { GRADE_LABELS, MAX_CLASS_SESSIONS, TEACHER_MAX_SESSIONS, TEACHER_MIN_SESSIONS } from '@/lib/types';
-import { Users, School, BookOpen, Presentation, Hash, Library } from 'lucide-react';
+import { Users, School, BookOpen, Presentation, Hash, Library, Filter } from 'lucide-react';
 
 import { Trash2 } from 'lucide-react';
 
 export default function Dashboard() {
   const { data, getTotalSessionsForClass, getTeacherTotalSessions, getClassesForGrade, deleteClass } = useAppStore();
+
+  const { currentUser } = useAuthStore();
+  const isAdmin = currentUser?.permissions.isAdmin;
+
+  const [selectedGrades, setSelectedGrades] = useState<string[]>([]);
+  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
+  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
 
   const configuredGrades = GRADE_LABELS.filter(g => getClassesForGrade(g).length > 0).length;
   
@@ -14,21 +23,63 @@ export default function Dashboard() {
   let totalSubjects = 0;
   const allTeachers = new Set<string>();
   const teachersPerSubject: Record<string, Set<string>> = {};
+  const sessionsPerSubject: Record<string, number> = {};
   const classListForTable: { grade: string, className: string, subjectsCount: number, totalSessions: number }[] = [];
 
+  const allAvailableClasses = new Set<string>();
+  const allAvailableSubjects = new Set<string>();
   GRADE_LABELS.forEach(g => {
-    const classes = getClassesForGrade(g);
-    totalClasses += classes.length;
-    classes.forEach(cls => {
+    getClassesForGrade(g).forEach(c => {
+      allAvailableClasses.add(c);
+      const subjects = data.gradeLevels[g].classes[c].subjects || {};
+      Object.entries(subjects).forEach(([sId, subj]: [string, any]) => {
+        if (subj.isFL) {
+           Object.keys(subj.languages || {}).forEach(langId => allAvailableSubjects.add(langId));
+        } else if (subj.isArtMusic) {
+           Object.keys(subj.subSubjects || {}).forEach(subId => allAvailableSubjects.add(subId));
+        } else {
+           const name = subj.isElective ? subj.name || sId : sId;
+           allAvailableSubjects.add(name);
+        }
+      });
+    });
+  });
+  const uniqueClassNames = Array.from(allAvailableClasses).sort();
+  const uniqueSubjects = Array.from(allAvailableSubjects).sort();
+
+  GRADE_LABELS.forEach(g => {
+    getClassesForGrade(g).forEach(cls => {
       const subjects = data.gradeLevels[g].classes[cls].subjects || {};
       const subjectsCount = Object.keys(subjects).length;
-      totalSubjects += subjectsCount;
       const tSessions = getTotalSessionsForClass(g, cls);
       classListForTable.push({ grade: g, className: cls, subjectsCount, totalSessions: tSessions });
+    });
+  });
 
+  const filteredGradeLabels = selectedGrades.length > 0 
+    ? GRADE_LABELS.filter(g => selectedGrades.includes(g))
+    : GRADE_LABELS;
+
+  filteredGradeLabels.forEach(g => {
+    const classes = getClassesForGrade(g);
+    let filteredClasses = classes;
+    if (selectedClasses.length > 0) {
+      filteredClasses = classes.filter(cls => selectedClasses.includes(cls));
+    }
+    
+    totalClasses += filteredClasses.length;
+    filteredClasses.forEach(cls => {
+      const subjects = data.gradeLevels[g].classes[cls].subjects || {};
+      
+      let classSubjectsCount = Object.keys(subjects).length;
+      // We process subjects, applying the subject filter
+      
       Object.entries(subjects).forEach(([sId, subj]: [string, any]) => {
         if (subj.isFL) {
           Object.entries(subj.languages || {}).forEach(([langId, lang]: [string, any]) => {
+            if (selectedSubjects.length > 0 && !selectedSubjects.includes(langId)) return;
+            totalSubjects++;
+            sessionsPerSubject[langId] = (sessionsPerSubject[langId] || 0) + (subj.sessions || 0);
             if (lang.teacher) {
                allTeachers.add(lang.teacher);
                if (!teachersPerSubject[langId]) teachersPerSubject[langId] = new Set();
@@ -37,6 +88,9 @@ export default function Dashboard() {
           });
         } else if (subj.isArtMusic) {
           Object.entries(subj.subSubjects || {}).forEach(([subId, subp]: [string, any]) => {
+            if (selectedSubjects.length > 0 && !selectedSubjects.includes(subId)) return;
+            totalSubjects++;
+            sessionsPerSubject[subId] = (sessionsPerSubject[subId] || 0) + (subj.sessions || 0);
             if (subp.teacher) {
                allTeachers.add(subp.teacher);
                if (!teachersPerSubject[subId]) teachersPerSubject[subId] = new Set();
@@ -44,9 +98,12 @@ export default function Dashboard() {
             }
           });
         } else {
+          const name = subj.isElective ? subj.name || sId : sId;
+          if (selectedSubjects.length > 0 && !selectedSubjects.includes(name)) return;
+          totalSubjects++;
+          sessionsPerSubject[name] = (sessionsPerSubject[name] || 0) + (subj.sessions || 0);
           if (subj.teacher) {
              allTeachers.add(subj.teacher);
-             const name = subj.isElective ? subj.name : sId;
              if (!teachersPerSubject[name]) teachersPerSubject[name] = new Set();
              teachersPerSubject[name].add(subj.teacher);
           }
@@ -54,9 +111,6 @@ export default function Dashboard() {
       });
     });
   });
-
-  const { currentUser } = useAuthStore();
-  const isAdmin = currentUser?.permissions.isAdmin;
 
   const handleDeleteClass = (grade: string, cls: string) => {
     let canEdit = false;
@@ -80,9 +134,15 @@ export default function Dashboard() {
   const totalTeachers = allTeachers.size;
 
   let totalHoDs = 0;
-  Object.values(data.teacherProfiles || {}).forEach((tp: any) => {
-    if (tp.isHoD) totalHoDs++;
-  });
+  if (selectedGrades.length > 0 || selectedClasses.length > 0 || selectedSubjects.length > 0) {
+    allTeachers.forEach(tch => {
+      if (data.teacherProfiles?.[tch]?.isHoD) totalHoDs++;
+    });
+  } else {
+    Object.values(data.teacherProfiles || {}).forEach((tp: any) => {
+      if (tp.isHoD) totalHoDs++;
+    });
+  }
 
   const stats = [
     { icon: <School className="w-5 h-5" />, value: data.schoolName || '—', label: 'School Name' },
@@ -97,15 +157,13 @@ export default function Dashboard() {
   const alerts: { type: 'ok'|'warn'|'danger', msg: string }[] = [];
 
   // Alerts
-  GRADE_LABELS.forEach(g => {
-    getClassesForGrade(g).forEach(cls => {
-      const total = getTotalSessionsForClass(g, cls);
-      const subjects = data.gradeLevels[g].classes[cls].subjects || {};
-      if (Object.keys(subjects).length === 0) return;
-      
-      if (total > MAX_CLASS_SESSIONS) alerts.push({ type: 'danger', msg: `Grade ${g} – Class ${cls}: ${total} sessions (${total - MAX_CLASS_SESSIONS} over limit)`});
-      else if (total < MAX_CLASS_SESSIONS) alerts.push({ type: 'warn', msg: `Grade ${g} – Class ${cls}: ${total} sessions (${MAX_CLASS_SESSIONS - total} below target)`});
-    });
+  classListForTable.forEach(item => {
+    const { grade: g, className: cls, totalSessions: total } = item;
+    const subjects = data.gradeLevels[g].classes[cls].subjects || {};
+    if (Object.keys(subjects).length === 0) return;
+    
+    if (total > MAX_CLASS_SESSIONS) alerts.push({ type: 'danger', msg: `Grade ${g} – Class ${cls}: ${total} sessions (${total - MAX_CLASS_SESSIONS} over limit)`});
+    else if (total < MAX_CLASS_SESSIONS) alerts.push({ type: 'warn', msg: `Grade ${g} – Class ${cls}: ${total} sessions (${MAX_CLASS_SESSIONS - total} below target)`});
   });
 
   allTeachers.forEach(tch => {
@@ -121,7 +179,88 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Dashboard Overview</h1>
           <p className="text-slate-500 text-sm mt-1">Manage and track school assignments and capacity.</p>
         </div>
+        <button 
+          onClick={() => setShowFilters(!showFilters)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-colors ${showFilters ? 'bg-indigo-100 text-indigo-700' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+        >
+          <Filter className="w-4 h-4" /> Filters {(selectedGrades.length > 0 || selectedClasses.length > 0 || selectedSubjects.length > 0) && <span className="bg-indigo-600 text-white text-[10px] px-1.5 py-0.5 rounded-full">{selectedGrades.length + selectedClasses.length + selectedSubjects.length}</span>}
+        </button>
       </div>
+
+      {showFilters && (
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm animate-in flex flex-col gap-4">
+           <div>
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Filter by Grade</h3>
+              <div className="flex flex-wrap gap-2">
+                 {GRADE_LABELS.map(g => {
+                   const isSel = selectedGrades.includes(g);
+                   return (
+                     <button 
+                       key={g}
+                       onClick={() => {
+                          if (isSel) setSelectedGrades(selectedGrades.filter(x => x !== g));
+                          else setSelectedGrades([...selectedGrades, g]);
+                       }}
+                       className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${isSel ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                     >
+                       {g}
+                     </button>
+                   )
+                 })}
+              </div>
+           </div>
+           
+           <div>
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Filter by Class Section</h3>
+              <div className="flex flex-wrap gap-2">
+                 {uniqueClassNames.map(c => {
+                   const isSel = selectedClasses.includes(c);
+                   return (
+                     <button 
+                       key={c}
+                       onClick={() => {
+                          if (isSel) setSelectedClasses(selectedClasses.filter(x => x !== c));
+                          else setSelectedClasses([...selectedClasses, c]);
+                       }}
+                       className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${isSel ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                     >
+                       {c}
+                     </button>
+                   )
+                 })}
+                 {uniqueClassNames.length === 0 && <span className="text-sm text-slate-400">No classes configured.</span>}
+              </div>
+           </div>
+
+           <div>
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Filter by Subject</h3>
+              <div className="flex flex-wrap gap-2">
+                 {uniqueSubjects.map(s => {
+                   const isSel = selectedSubjects.includes(s);
+                   return (
+                     <button 
+                       key={s}
+                       onClick={() => {
+                          if (isSel) setSelectedSubjects(selectedSubjects.filter(x => x !== s));
+                          else setSelectedSubjects([...selectedSubjects, s]);
+                       }}
+                       className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${isSel ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                     >
+                       {s}
+                     </button>
+                   )
+                 })}
+                 {uniqueSubjects.length === 0 && <span className="text-sm text-slate-400">No subjects configured.</span>}
+              </div>
+           </div>
+           
+           {(selectedGrades.length > 0 || selectedClasses.length > 0 || selectedSubjects.length > 0) && (
+             <div className="flex justify-end pt-2 border-t border-slate-100">
+                <button onClick={() => { setSelectedGrades([]); setSelectedClasses([]); setSelectedSubjects([]); }} className="text-xs font-bold text-slate-500 hover:text-slate-700">Clear All Filters</button>
+             </div>
+           )}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.slice(0,4).map((s, i) => (
@@ -154,15 +293,18 @@ export default function Dashboard() {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 overflow-hidden flex flex-col">
-          <h3 className="font-bold text-sm text-slate-900 uppercase tracking-widest mb-4">Teachers Per Subject</h3>
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col">
+          <h3 className="font-bold text-sm text-slate-900 uppercase tracking-widest mb-4">Subject Stats</h3>
           <div className="space-y-2 overflow-y-auto max-h-[250px] pr-2">
             {Object.entries(teachersPerSubject).length === 0 ? (
-               <p className="text-slate-500 text-sm">No teachers assigned yet.</p>
+               <p className="text-slate-500 text-sm">No subjects/teachers assigned yet.</p>
             ) : Object.entries(teachersPerSubject).sort((a, b) => b[1].size - a[1].size).map(([subj, teachers]) => (
                <div key={subj} className="flex justify-between items-center bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
                   <span className="font-medium text-sm text-slate-700">{subj}</span>
-                  <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">{teachers.size}</span>
+                  <div className="flex items-center gap-1.5">
+                     <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full" title="Teachers">{teachers.size} Tchs</span>
+                     <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full" title="Sessions">{sessionsPerSubject[subj] || 0} Sess</span>
+                  </div>
                </div>
             ))}
           </div>
