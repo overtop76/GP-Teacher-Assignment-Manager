@@ -658,8 +658,14 @@ export default function TeacherManagement() {
                   </div>
                 </td>
                 <td className="p-4 text-center">
-                  <span className={`inline-block px-2.5 py-1 rounded-lg text-sm font-bold ${t.sessions > 0 ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-400'}`}>
-                    {t.sessions}
+                  <span className={`inline-block px-2.5 py-1 rounded-lg text-sm font-bold ${
+                    t.sessions > (t.isHoD ? (data.settings?.maxHoDLoad || 18) : (data.settings?.maxTeacherLoad || 24)) 
+                      ? 'bg-red-50 text-red-700 border border-red-200' 
+                      : t.sessions > 0 
+                        ? 'bg-indigo-50 text-indigo-700' 
+                        : 'bg-slate-100 text-slate-400'
+                  }`}>
+                    {t.sessions} / {t.isHoD ? (data.settings?.maxHoDLoad || 18) : (data.settings?.maxTeacherLoad || 24)}
                   </span>
                 </td>
                 <td className="p-4">

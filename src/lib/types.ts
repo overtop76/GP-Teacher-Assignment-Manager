@@ -79,4 +79,8 @@ export interface AppData {
     hodGrades?: string[];
     gender?: 'Male' | 'Female';
   }>;
+  settings?: {
+    maxTeacherLoad?: number;
+    maxHoDLoad?: number;
+  };
 }

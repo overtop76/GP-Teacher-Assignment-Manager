@@ -8,11 +8,14 @@ import { db } from '@/lib/firebase';
 import { doc, getDocs, collection, setDoc } from 'firebase/firestore';
 
 export default function Setup() {
-  const { data, getClassesForGrade, setClassesForGrade, clearClassesForGrade, importSchoolData, patchSchoolData, renameGrade, renameClass } = useAppStore();
+  const { data, getClassesForGrade, setClassesForGrade, clearClassesForGrade, importSchoolData, patchSchoolData, renameGrade, renameClass, updateSettings } = useAppStore();
   const gradesList = data?.gradesOrder || GRADE_LABELS;
   const { currentUser, setActiveSchoolId, activeSchoolId, createSchool, updateSchool, systemData } = useAuthStore();
   const [sName, setSName] = useState(data?.schoolName || '');
   const [activeGrade, setActiveGrade] = useState(gradesList[0] || 'K1');
+  
+  const [maxTeacherLoad, setMaxTeacherLoad] = useState(data?.settings?.maxTeacherLoad?.toString() || '24');
+  const [maxHoDLoad, setMaxHoDLoad] = useState(data?.settings?.maxHoDLoad?.toString() || '18');
 
   const classesText = activeSchoolId ? getClassesForGrade(activeGrade).join(', ') : '';
   const [classListInput, setClassListInput] = useState(classesText);
@@ -279,6 +282,40 @@ export default function Setup() {
           </button>
         </div>
       </div>
+
+      {!isCreatingNewSchool && activeSchoolId && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 animate-in slide-in-from-bottom-4 flex flex-col gap-4">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">School Settings</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+               <div>
+                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">Default Max Teacher Load</label>
+                 <input 
+                   type="number" 
+                   value={maxTeacherLoad}
+                   onChange={(e) => {
+                     setMaxTeacherLoad(e.target.value);
+                     updateSettings({ maxTeacherLoad: parseInt(e.target.value) || 24, maxHoDLoad: parseInt(maxHoDLoad) || 18 });
+                   }}
+                   className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm transition-colors text-slate-900"
+                 />
+                 <p className="text-xs text-slate-500 mt-1">Target workload limit for regular teachers.</p>
+               </div>
+               <div>
+                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">Default Max HoD Load</label>
+                 <input 
+                   type="number" 
+                   value={maxHoDLoad}
+                   onChange={(e) => {
+                     setMaxHoDLoad(e.target.value);
+                     updateSettings({ maxTeacherLoad: parseInt(maxTeacherLoad) || 24, maxHoDLoad: parseInt(e.target.value) || 18 });
+                   }}
+                   className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm transition-colors text-slate-900"
+                 />
+                 <p className="text-xs text-slate-500 mt-1">Target workload limit for Heads of Department.</p>
+               </div>
+            </div>
+          </div>
+      )}
 
       {!isCreatingNewSchool && activeSchoolId && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 animate-in slide-in-from-bottom-4">

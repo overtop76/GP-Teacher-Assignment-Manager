@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useAppStore } from '@/lib/store';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell
+  PieChart, Pie, Cell, ReferenceLine
 } from 'recharts';
 import { BarChart3, PieChart as PieChartIcon } from 'lucide-react';
 
@@ -200,6 +200,12 @@ export default function Visualization() {
                   contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'}}
                 />
                 <Legend wrapperStyle={{paddingTop: '20px'}} />
+                {metric === 'workload' && (
+                  <>
+                    <ReferenceLine y={data?.settings?.maxTeacherLoad || 24} stroke="#ef4444" strokeDasharray="3 3" label={{ position: 'right', value: 'Max Teacher Load', fill: '#ef4444', fontSize: 12 }} />
+                    <ReferenceLine y={data?.settings?.maxHoDLoad || 18} stroke="#f59e0b" strokeDasharray="3 3" label={{ position: 'right', value: 'Max HoD Load', fill: '#f59e0b', fontSize: 12 }} />
+                  </>
+                )}
                 <Bar dataKey={dataKey} name="Total Sessions" fill="#4f46e5" radius={[4, 4, 0, 0]}>
                   {chartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

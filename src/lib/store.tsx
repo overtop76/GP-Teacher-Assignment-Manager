@@ -47,6 +47,7 @@ export interface AppContextType {
   patchSchoolData: (partialData: Partial<AppData>) => void;
   renameTeacher: (oldName: string, newName: string) => void;
   addTeacher: (name: string, gender?: 'Male' | 'Female') => void;
+  updateSettings: (settings: { maxTeacherLoad?: number; maxHoDLoad?: number; }) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -193,6 +194,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     patchSchoolData: (partialData: Partial<AppData>) => {
       save({ ...data, ...partialData, schoolName: data.schoolName });
+    },
+    updateSettings: (settings: { maxTeacherLoad?: number; maxHoDLoad?: number; }) => {
+      const d = structuredClone(data);
+      d.settings = { ...d.settings, ...settings };
+      save(d);
     },
     deleteClass: (grade: string, className: string) => {
       const d = structuredClone(data);
