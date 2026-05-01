@@ -12,6 +12,7 @@ import UsersManagement from '@/components/UsersManagement';
 import TeacherManagement from '@/components/TeacherManagement';
 import Help from '@/components/Help';
 import Visualization from '@/components/Visualization';
+import AuditLogView from '@/components/AuditLogView';
 import { useAppStore } from '@/lib/store';
 import { AuthProvider, useAuthStore } from '@/lib/authStore';
 
@@ -94,6 +95,7 @@ function Sidebar({ activeTab, setActiveTab }: { activeTab: string, setActiveTab:
     { id: 'assignments', label: 'Teacher Assignments', icon: <UserCheck className="w-5 h-5" />, badge: subjectCount, show: true },
     { id: 'visualization', label: 'Visualizations', icon: <LineChart className="w-5 h-5" />, show: true },
     { id: 'reports', label: 'Analytics & Reports', icon: <BarChart3 className="w-5 h-5" />, show: true },
+    { id: 'audit', label: 'System Audit Log', icon: <Bell className="w-5 h-5" />, show: currentUser?.permissions.isAdmin || false },
     { id: 'help', label: 'Help & Guide', icon: <HelpCircle className="w-5 h-5" />, show: true },
   ];
 
@@ -229,6 +231,7 @@ function MainApp() {
                {activeTab === 'assignments' && <Assignments />}
                {activeTab === 'visualization' && <Visualization />}
                {activeTab === 'reports' && <Reports />}
+               {activeTab === 'audit' && <AuditLogView />}
                {activeTab === 'help' && <Help />}
              </div>
           )}

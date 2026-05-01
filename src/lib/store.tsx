@@ -53,7 +53,7 @@ export interface AppContextType {
 const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const { activeSchoolId, systemData } = useAuthStore();
+  const { activeSchoolId, systemData, addAuditLog } = useAuthStore();
   const schoolName = systemData.schools.find(s => s.id === activeSchoolId)?.name || '';
   
   const [data, setData] = useState<AppData>(initEmptyData(schoolName));
@@ -159,6 +159,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const cbs: Omit<AppContextType, 'data' | 'getTeacherTotalSessions' | 'getTotalSessionsForClass' | 'getClassesForGrade'> = {
     setSchoolName: (name) => {
       save({ ...data, schoolName: name });
+      addAuditLog('Setup', `Changed school name to ${name}`);
     },
     setClassesForGrade: (grade, classList) => {
       const d = structuredClone(data);
@@ -171,11 +172,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
       d.gradeLevels[grade].classes = newClasses;
       save(d);
+      addAuditLog('Setup', `Set classes for grade ${grade}`);
     },
     clearClassesForGrade: (grade: string) => {
       const d = structuredClone(data);
       d.gradeLevels[grade] = getDefaultGradeData();
       save(d);
+      addAuditLog('Setup', `Cleared classes for grade ${grade}`);
     },
     importSchoolData: (jsonStr: string) => {
       try {
@@ -184,6 +187,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           // simple validation
           if (parsed.gradeLevels) {
              save({ ...data, ...parsed, schoolName: data.schoolName }); // preserve current school name/id
+             addAuditLog('Import', `Imported school data`);
              return true;
           }
         }
@@ -199,12 +203,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const d = structuredClone(data);
       d.settings = { ...d.settings, ...settings };
       save(d);
+      addAuditLog('Settings', `Updated teacher load settings`);
     },
     deleteClass: (grade: string, className: string) => {
       const d = structuredClone(data);
       if (d.gradeLevels[grade]?.classes[className]) {
         delete d.gradeLevels[grade].classes[className];
         save(d);
+        addAuditLog('Setup', `Deleted class ${className} from grade ${grade}`);
       }
     },
     renameGrade: (oldName: string, newName: string) => {
@@ -288,6 +294,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
       
       save(d);
+      addAuditLog('Teacher Management', `Renamed teacher ${trimmedOld} to ${trimmedNew}`);
     },
     setSubjectForGradeClass: (grade, className, subjectName, sessions, teacherName, existingSubjectId) => {
       const d = structuredClone(data);
@@ -313,6 +320,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         };
       }
       save(d);
+      addAuditLog('Assignment', `Assigned ${trimmedSubject} to ${teacherTrimmed} in ${grade}/${className}`);
     },
     setFLSubject: (grade, className, sessions, langTeachers, existingId) => {
       const d = structuredClone(data);

@@ -60,9 +60,20 @@ export interface SchoolInfo {
 }
 
 export const AUTH_STORAGE_KEY = 'eduDashAuth_v1';
+export interface AuditLog {
+  id: string;
+  timestamp: string;
+  userId: string;
+  username: string;
+  action: string;
+  details: string;
+  schoolId?: string | null;
+}
+
 export interface SystemData {
   users: UserAccount[];
   schools: SchoolInfo[];
+  auditLogs?: AuditLog[];
 }
 
 export interface AppData {

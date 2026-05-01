@@ -15,6 +15,7 @@ export interface AuthContextType {
   createUser: (user: Omit<UserAccount, 'id'>) => void;
   updateUser: (id: string, user: Partial<Omit<UserAccount, 'id'>>) => void;
   deleteUser: (id: string) => void;
+  addAuditLog: (action: string, details: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -112,22 +113,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setDoc(doc(db, 'systemData', 'global'), newData).catch(e => console.error("Firebase save error", e));
   };
 
+  const _addAuditLogWithUser = (user: UserAccount, action: string, details: string, currentSysData: SystemData, schoolIdOverride?: string | null) => {
+     const schoolId = schoolIdOverride !== undefined ? schoolIdOverride : activeSchoolId;
+     import('firebase/firestore').then(({ doc, updateDoc, arrayUnion, setDoc: firestoreSetDoc }) => {
+        const newLog = {
+            id: Math.random().toString(36).substring(2, 11),
+            timestamp: new Date().toISOString(),
+            userId: user.id,
+            username: user.username,
+            action,
+            details,
+            schoolId: schoolId || null
+        };
+        let currentLogs = currentSysData.auditLogs || [];
+        currentLogs = [newLog, ...currentLogs].slice(0, 200);
+        const newData = { ...currentSysData, auditLogs: currentLogs };
+        saveSystemData(newData);
+
+        const dateStr = new Date().toISOString().slice(0, 10);
+        const docRef = doc(db, 'auditLogs', dateStr);
+        updateDoc(docRef, { logs: arrayUnion(newLog) }).catch(() => {
+            firestoreSetDoc(docRef, { logs: [newLog] });
+        });
+     });
+  };
+
   const cbs: Omit<AuthContextType, 'systemData' | 'currentUser' | 'activeSchoolId'> = {
+    addAuditLog: (action, details) => {
+        if (currentUser) {
+            _addAuditLogWithUser(currentUser, action, details, systemData);
+        }
+    },
     login: (username, password) => {
        const user = systemData.users.find(u => u.username === username && u.passwordText === password);
        if (user) {
          setCurrentUser(user);
          sessionStorage.setItem('edudash_current_user', JSON.stringify(user));
          
+         let loginSchoolId = null;
          // auto-select school if not ALL
          if (!user.permissions.isAdmin && user.assignedSchools.length > 0 && user.assignedSchools[0] !== 'ALL') {
              cbs.setActiveSchoolId(user.assignedSchools[0]);
+             loginSchoolId = user.assignedSchools[0];
          }
+         _addAuditLogWithUser(user, 'Login', 'User successfully logged in', systemData, loginSchoolId);
          return true;
        }
        return false;
     },
     logout: () => {
+       if (currentUser) {
+           _addAuditLogWithUser(currentUser, 'Logout', 'User logged out', systemData);
+       }
        setCurrentUser(null);
        setActiveSchoolId(null);
        sessionStorage.removeItem('edudash_current_user');
@@ -146,6 +183,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
        
        const newData = { ...systemData, schools: [...systemData.schools, { id: newId, name }] };
        saveSystemData(newData);
+       if (currentUser) {
+           _addAuditLogWithUser(currentUser, 'School Management', `Created new school ${name}`, newData);
+       }
        return newId;
     },
     updateSchool: (id, name) => {
@@ -154,11 +194,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
          schools: systemData.schools.map(s => s.id === id ? { ...s, name } : s)
        };
        saveSystemData(newData);
+       if (currentUser) {
+           _addAuditLogWithUser(currentUser, 'School Management', `Updated school ${name}`, newData);
+       }
     },
     createUser: (userObj) => {
        const newId = 'USR-' + Math.random().toString(36).substr(2, 9).toUpperCase();
        const newData = { ...systemData, users: [...systemData.users, { ...userObj, id: newId }] };
        saveSystemData(newData);
+       if (currentUser) {
+           _addAuditLogWithUser(currentUser, 'User Management', `Created new user ${userObj.username}`, newData);
+       }
     },
     updateUser: (id, partialUser) => {
        const newData = {
@@ -166,18 +212,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
          users: systemData.users.map(u => u.id === id ? { ...u, ...partialUser } : u)
        };
        saveSystemData(newData);
-       if (currentUser?.id === id) {
+       if (currentUser) {
            const updatedUser = newData.users.find(u => u.id === id)!;
-           setCurrentUser(updatedUser);
-           sessionStorage.setItem('edudash_current_user', JSON.stringify(updatedUser));
+           if (currentUser.id === id) {
+               setCurrentUser(updatedUser);
+               sessionStorage.setItem('edudash_current_user', JSON.stringify(updatedUser));
+           }
+           _addAuditLogWithUser(currentUser, 'User Management', `Updated user ${updatedUser.username}`, newData);
        }
     },
     deleteUser: (id) => {
+       const deletedUser = systemData.users.find(u => u.id === id);
        const newData = {
          ...systemData,
          users: systemData.users.filter(u => u.id !== id)
        };
        saveSystemData(newData);
+       if (currentUser && deletedUser) {
+           _addAuditLogWithUser(currentUser, 'User Management', `Deleted user ${deletedUser.username}`, newData);
+       }
     }
   };
 
