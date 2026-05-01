@@ -44,6 +44,7 @@ export interface AppContextType {
   renameClass: (grade: string, oldName: string, newName: string) => void;
   setTeacherProfile: (teacherId: string, profile: { isHoD?: boolean; department?: string; hodSubjects?: string[]; hodGrades?: string[]; gender?: 'Male' | 'Female' }) => void;
   importSchoolData: (jsonData: string) => boolean;
+  patchSchoolData: (partialData: Partial<AppData>) => void;
   renameTeacher: (oldName: string, newName: string) => void;
   addTeacher: (name: string) => void;
 }
@@ -189,6 +190,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         console.error("Invalid JSON", e);
       }
       return false;
+    },
+    patchSchoolData: (partialData: Partial<AppData>) => {
+      save({ ...data, ...partialData, schoolName: data.schoolName });
     },
     deleteClass: (grade: string, className: string) => {
       const d = structuredClone(data);

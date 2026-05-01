@@ -4,9 +4,11 @@ import { useAuthStore } from '@/lib/authStore';
 import { GRADE_LABELS } from '@/lib/types';
 import { Save, Trash2, Plus, Building, CopyCheck, Download, Upload, Edit2, Check, X } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
+import { db } from '@/lib/firebase';
+import { doc, getDocs, collection, setDoc } from 'firebase/firestore';
 
 export default function Setup() {
-  const { data, getClassesForGrade, setClassesForGrade, clearClassesForGrade, importSchoolData, renameGrade, renameClass } = useAppStore();
+  const { data, getClassesForGrade, setClassesForGrade, clearClassesForGrade, importSchoolData, patchSchoolData, renameGrade, renameClass } = useAppStore();
   const gradesList = data?.gradesOrder || GRADE_LABELS;
   const { currentUser, setActiveSchoolId, activeSchoolId, createSchool, updateSchool, systemData } = useAuthStore();
   const [sName, setSName] = useState(data?.schoolName || '');
@@ -18,6 +20,10 @@ export default function Setup() {
   
   const [editingGrade, setEditingGrade] = useState<{old: string, newName: string} | null>(null);
   const [editingClass, setEditingClass] = useState<{old: string, newName: string} | null>(null);
+
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportType, setExportType] = useState('whole_system');
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     if (!isCreatingNewSchool) {
@@ -109,33 +115,113 @@ export default function Setup() {
     }
   };
 
-  const handleExportData = () => {
+  const performExport = async () => {
+    setIsExporting(true);
+    try {
+      const date = new Date().toISOString().slice(0, 10);
+      const username = currentUser?.username?.replace(/\s+/g, '_') || 'Auto';
+      let exportObj: any = { version: "1.0", exportedBy: username, date };
+      let filenamePrefix = '';
+
+      if (exportType === 'whole_system') {
+        filenamePrefix = 'WholeSystem';
+        exportObj.type = 'whole_system';
+        const schoolsSnap = await getDocs(collection(db, 'schoolsData'));
+        const sData: Record<string, any> = {};
+        schoolsSnap.forEach(docSnap => {
+           sData[docSnap.id] = docSnap.data();
+        });
+        exportObj.schoolsData = sData;
+        exportObj.systemData = systemData;
+      } else if (exportType === 'current_school') {
+        filenamePrefix = `School_${sName.replace(/\s+/g, '')}`;
+        exportObj.type = 'current_school';
+        exportObj.appData = data;
+      } else if (exportType === 'teacher_assignments') {
+        filenamePrefix = `Teachers_${sName.replace(/\s+/g, '')}`;
+        exportObj.type = 'teacher_assignments';
+        exportObj.payload = {
+           teachers: data.teachers,
+           teacherProfiles: data.teacherProfiles
+        };
+      } else if (exportType === 'classes_sections') {
+        filenamePrefix = `Classes_${sName.replace(/\s+/g, '')}`;
+        exportObj.type = 'classes_sections';
+        exportObj.payload = {
+           gradeLevels: data.gradeLevels,
+           gradesOrder: data.gradesOrder
+        };
+      }
+
+      const jsonStr = JSON.stringify(exportObj, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Edudash_${filenamePrefix}_${date}_${username}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast.success('Backup exported successfully');
+      setShowExportModal(false);
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to export data');
+    }
+    setIsExporting(false);
+  };
+
+  const handleExportDataClick = () => {
     if (!activeSchoolId) {
         toast.error('Select a school first.');
         return;
     }
-    const jsonStr = JSON.stringify(data, null, 2);
-    const blob = new Blob([jsonStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `edudash_school_${sName.replace(/\s+/g, '_').toLowerCase()}_data.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setShowExportModal(true);
   };
 
-  const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportData = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
         const str = evt.target?.result as string;
         if (str) {
-            const success = importSchoolData(str);
-            if (success) toast.success('School data imported successfully!');
-            else toast.error('Check your JSON file format.');
+            try {
+               const parsed = JSON.parse(str);
+               if (parsed.type === 'whole_system' && parsed.schoolsData && parsed.systemData) {
+                  if (!confirm('This will OVERWRITE the entire system (all schools, users). Are you sure?')) return;
+                  await setDoc(doc(db, 'systemData', 'global'), parsed.systemData);
+                  for (const [sId, sData] of Object.entries(parsed.schoolsData)) {
+                     await setDoc(doc(db, 'schoolsData', sId), sData);
+                  }
+                  toast.success('Whole system restored! Please refresh.');
+                  setTimeout(() => window.location.reload(), 1500);
+               } else if (parsed.type === 'current_school' && parsed.appData) {
+                  if (!confirm(`Restore full data for current school (${sName})?`)) return;
+                  const success = importSchoolData(JSON.stringify(parsed.appData));
+                  if (success) toast.success('School data restored!');
+                  else toast.error('Failed to apply school data');
+               } else if (parsed.type === 'teacher_assignments' && parsed.payload) {
+                  if (!confirm('Restore teacher profiles and lists for current school?')) return;
+                  patchSchoolData({ teachers: parsed.payload.teachers || {}, teacherProfiles: parsed.payload.teacherProfiles || {} });
+                  toast.success('Teacher assignments restored!');
+               } else if (parsed.type === 'classes_sections' && parsed.payload) {
+                  if (!confirm('Restore classes and sections for current school?')) return;
+                  patchSchoolData({ gradeLevels: parsed.payload.gradeLevels || {}, gradesOrder: parsed.payload.gradesOrder || GRADE_LABELS });
+                  toast.success('Classes and sections restored!');
+               } else if (parsed.gradeLevels) {
+                  // Legacy support
+                  const success = importSchoolData(str);
+                  if (success) toast.success('School data imported successfully!');
+               } else {
+                  toast.error('Unknown backup format');
+               }
+            } catch (e) {
+               console.error(e);
+               toast.error('Invalid JSON file format.');
+            }
         }
     };
     reader.readAsText(file);
@@ -324,7 +410,7 @@ export default function Setup() {
             <p className="text-sm text-slate-500 mb-6">Backup or restore configuration for {sName}.</p>
             <div className="flex flex-col sm:flex-row gap-4">
               <button 
-                onClick={handleExportData}
+                onClick={handleExportDataClick}
                 className="flex items-center justify-center gap-2 px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors w-full sm:w-auto"
               >
                 <Download className="w-4 h-4" /> Export School JSON
@@ -335,6 +421,53 @@ export default function Setup() {
               </label>
             </div>
           </div>
+      )}
+
+      {showExportModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="text-xl font-bold text-slate-900">Export Backup</h3>
+              <button onClick={() => setShowExportModal(false)} className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Select Data to Export</label>
+              <select 
+                value={exportType}
+                onChange={e => setExportType(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 mb-4"
+              >
+                <option value="whole_system">Whole System (All Schools & Config)</option>
+                <option value="current_school">Full Current School Backup</option>
+                <option value="teacher_assignments">Teacher Assignments Only</option>
+                <option value="classes_sections">Classes & Sections Only</option>
+              </select>
+              <p className="text-xs text-slate-500 italic">
+                Filename will automatically include the chosen export type, the current date, and your username.
+              </p>
+            </div>
+            
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+              <button 
+                onClick={() => setShowExportModal(false)} 
+                className="px-5 py-2 text-slate-600 font-medium hover:bg-slate-200 rounded-lg transition-colors"
+                disabled={isExporting}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={performExport} 
+                disabled={isExporting}
+                className="flex items-center justify-center gap-2 px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition-colors shadow-sm disabled:opacity-50"
+              >
+                {isExporting ? 'Exporting...' : 'Download JSON'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
