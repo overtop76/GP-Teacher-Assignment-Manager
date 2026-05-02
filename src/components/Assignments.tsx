@@ -7,7 +7,7 @@ import { Edit2, Plus, Trash2, Globe2, Copy, ShieldAlert, Palette, Shuffle } from
 import toast, { Toaster } from 'react-hot-toast';
 
 export default function Assignments() {
-  const { data, getClassesForGrade, getTotalSessionsForClass, setSubjectForGradeClass, deleteSubjectForGradeClass, setFLSubject, setArtMusicSubject, setElectiveSubject, copySubjectsToClass, copySubjectsToAnotherSchool, getClassesForAnotherSchool } = useAppStore();
+  const { data, getClassesForGrade, getTotalSessionsForClass, setSubjectForGradeClass, deleteSubjectForGradeClass, setFLSubject, setArtMusicSubject, setElectiveSubject, copySubjectsToClass, copySubjectsToAnotherSchool, getClassesForAnotherSchool, getTeacherTotalSessions } = useAppStore();
   const { currentUser, systemData, activeSchoolId } = useAuthStore();
   
   const hasNoGradeAccessControl = (!currentUser?.permissions?.canEditGrades?.length && !currentUser?.permissions?.canViewGrades?.length);
@@ -89,6 +89,40 @@ export default function Assignments() {
 
   const activeSchoolName = systemData.schools.find(s => s.id === activeSchoolId)?.name;
   const showArtMusicOption = !!activeSchoolName && activeSchoolName.toLowerCase().includes('gpis') && ['6', '7', '8'].includes(selectedGrade);
+  const maxLoad = data.settings?.maxTeacherLoad || TEACHER_MAX_SESSIONS;
+
+  const renderTeacherConflict = (teacherName: string, selectedSessions: number) => {
+     if (!teacherName.trim() || teacherName.trim() === 'TBA') return null;
+     
+     const currentLoad = getTeacherTotalSessions(teacherName);
+     let plannedLoad = currentLoad;
+     
+     // Only add sessions if this is a NEW assignment for this specific teacher 
+     // (if they already own this subject, currentLoad already includes the OLD sessions, 
+     // so we only add the difference)
+     let existingSessionsForThisTeacher = 0;
+     if (editingSubject) {
+        if (editingSubject.isFL) {
+           const matches = Object.values(editingSubject.languages || {}).find(v => v === teacherName);
+           if (matches) existingSessionsForThisTeacher = editingSubject.sessions;
+        } else if (editingSubject.isArtMusic) {
+           const matches = Object.values(editingSubject.artMusic || {}).find(v => v === teacherName);
+           if (matches) existingSessionsForThisTeacher = editingSubject.sessions;
+        } else if (editingSubject.isElective) {
+           const matches = Object.values(editingSubject.electives || {}).find((v: any) => v.teacher === teacherName);
+           if (matches) existingSessionsForThisTeacher = editingSubject.sessions;
+        } else {
+           if (editingSubject.teacher === teacherName) existingSessionsForThisTeacher = editingSubject.sessions;
+        }
+     }
+     
+     plannedLoad = currentLoad - existingSessionsForThisTeacher + selectedSessions;
+     
+     if (plannedLoad > maxLoad) {
+         return <div className="text-[10px] text-rose-600 mt-1 flex items-center gap-1 font-bold"><ShieldAlert className="w-3 h-3" /> Overload ({plannedLoad}/{maxLoad})</div>;
+     }
+     return <div className="text-[10px] text-slate-500 mt-1">Load: {plannedLoad}/{maxLoad}</div>;
+  };
 
   const handleOpenModal = (subjStr?: string) => {
     if (!canEditSelectedGrade) return;
@@ -612,14 +646,17 @@ export default function Assignments() {
                      <div key={lang} className="flex items-center gap-3">
                        <span className="text-lg">{FL_FLAGS[lang]}</span>
                        <span className="text-sm font-medium w-16 text-slate-700">{lang}</span>
-                       <input 
-                        type="text" 
-                        list={`teachers-list-FL-${lang}`}
-                        placeholder="Teacher name" 
-                        value={flTeachers[lang] || ''} 
-                        onChange={e => setFlTeachers(prev => ({ ...prev, [lang]: e.target.value }))}
-                        className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900"
-                       />
+                       <div className="flex-1">
+                         <input 
+                          type="text" 
+                          list={`teachers-list-FL-${lang}`}
+                          placeholder="Teacher name" 
+                          value={flTeachers[lang] || ''} 
+                          onChange={e => setFlTeachers(prev => ({ ...prev, [lang]: e.target.value }))}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900"
+                         />
+                         {renderTeacherConflict(flTeachers[lang] || '', sessions)}
+                       </div>
                        <datalist id={`teachers-list-FL-${lang}`}>
                          {getFilteredTeachers(lang).map(t => <option key={t} value={t} />)}
                        </datalist>
@@ -638,14 +675,17 @@ export default function Assignments() {
                    {ART_MUSIC_SUBJECTS.map(am => (
                      <div key={am} className="flex items-center gap-3">
                        <span className="text-sm font-medium w-16 text-slate-700">{am}</span>
-                       <input 
-                        type="text" 
-                        list={`teachers-list-AM-${am}`}
-                        placeholder="Teacher name" 
-                        value={amTeachers[am] || ''} 
-                        onChange={e => setAmTeachers(prev => ({ ...prev, [am]: e.target.value }))}
-                        className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900"
-                       />
+                       <div className="flex-1">
+                         <input 
+                          type="text" 
+                          list={`teachers-list-AM-${am}`}
+                          placeholder="Teacher name" 
+                          value={amTeachers[am] || ''} 
+                          onChange={e => setAmTeachers(prev => ({ ...prev, [am]: e.target.value }))}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900"
+                         />
+                         {renderTeacherConflict(amTeachers[am] || '', sessions)}
+                       </div>
                        <datalist id={`teachers-list-AM-${am}`}>
                          {getFilteredTeachers(am).map(t => <option key={t} value={t} />)}
                        </datalist>
@@ -682,18 +722,21 @@ export default function Assignments() {
                         }}
                         className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-900"
                        />
-                       <input 
-                        type="text" 
-                        list={`teachers-list-EO-${idx}`}
-                        placeholder="Teacher name" 
-                        value={eo.teacher} 
-                        onChange={e => {
-                          const n = [...electiveOptions];
-                          n[idx].teacher = e.target.value;
-                          setElectiveOptions(n);
-                        }}
-                        className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-900"
-                       />
+                       <div className="flex-1">
+                         <input 
+                          type="text" 
+                          list={`teachers-list-EO-${idx}`}
+                          placeholder="Teacher name" 
+                          value={eo.teacher} 
+                          onChange={e => {
+                            const n = [...electiveOptions];
+                            n[idx].teacher = e.target.value;
+                            setElectiveOptions(n);
+                          }}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-900"
+                         />
+                         {renderTeacherConflict(eo.teacher, sessions)}
+                       </div>
                        <datalist id={`teachers-list-EO-${idx}`}>
                          {getFilteredTeachers(eo.name).map(t => <option key={t} value={t} />)}
                        </datalist>
@@ -722,6 +765,7 @@ export default function Assignments() {
                     <div className="flex-1">
                       <label className="block text-sm font-semibold text-slate-700 mb-1.5">Teacher</label>
                       <input type="text" list="teachers-list-standard" value={teacher} onChange={e => setTeacher(e.target.value)} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900 text-sm" />
+                      {renderTeacherConflict(teacher, sessions)}
                       <datalist id="teachers-list-standard">
                         {getFilteredTeachers(subjectName).map(t => <option key={t} value={t} />)}
                       </datalist>

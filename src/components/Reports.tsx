@@ -12,6 +12,7 @@ export default function Reports() {
   const { currentUser } = useAuthStore();
   const [reportType, setReportType] = useState('overall');
   const [reportFilter, setReportFilter] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   
   const canExport = currentUser?.permissions.isAdmin || currentUser?.permissions.canPrintExport;
 
@@ -189,6 +190,16 @@ export default function Reports() {
         });
       });
     });
+    
+    if (searchQuery.trim()) {
+      const qs = searchQuery.toLowerCase();
+      return rows.filter(r => 
+        (r.grade || '').toLowerCase().includes(qs) ||
+        (r.cls || '').toLowerCase().includes(qs) ||
+        (r.subj || '').toLowerCase().includes(qs) ||
+        (r.teacher || '').toLowerCase().includes(qs)
+      );
+    }
     
     return rows;
   };
@@ -599,7 +610,7 @@ export default function Reports() {
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col md:flex-row gap-4 items-end print-hidden">
          <div className="flex-1 w-full">
-           <label className="block text-sm font-semibold text-slate-700 mb-1.5">Report Type</label>
+           <label className="block text-sm font-semibold text-slate-700 mb-1.5">Report Grouping</label>
            <select 
               value={reportType} 
               onChange={e => { setReportType(e.target.value); setReportFilter(''); }}
@@ -630,6 +641,16 @@ export default function Reports() {
              </select>
            </div>
          )}
+         <div className="flex-1 w-full">
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Search Text Filter</label>
+            <input 
+               type="text" 
+               placeholder="Filter results..." 
+               value={searchQuery} 
+               onChange={e => setSearchQuery(e.target.value)}
+               className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm transition-colors text-slate-900"
+            />
+         </div>
          <div className="flex flex-wrap gap-2 w-full md:w-auto mt-2 md:mt-0">
             <button onClick={generateReport} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-lg transition-colors text-sm shadow-sm">
               <Search className="w-4 h-4" /> Overview
