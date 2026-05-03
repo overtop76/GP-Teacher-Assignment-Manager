@@ -46,6 +46,7 @@ export interface AppContextType {
   importSchoolData: (jsonData: string) => boolean;
   patchSchoolData: (partialData: Partial<AppData>) => void;
   renameTeacher: (oldName: string, newName: string) => void;
+  deleteTeacher: (name: string) => void;
   addTeacher: (name: string, gender?: 'Male' | 'Female') => void;
   updateSettings: (settings: { maxTeacherLoad?: number; maxHoDLoad?: number; }) => void;
 }
@@ -295,6 +296,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       save(d);
       addAuditLog('Teacher Management', `Renamed teacher ${trimmedOld} to ${trimmedNew}`);
+    },
+    deleteTeacher: (name: string) => {
+      const d = structuredClone(data);
+      const trimmedName = name.trim();
+      if (!trimmedName) return;
+      
+      const tid = d.teachers[trimmedName];
+      if (!tid) return;
+      
+      delete d.teachers[trimmedName];
+      if (d.teacherProfiles && d.teacherProfiles[tid]) {
+         delete d.teacherProfiles[tid];
+      }
+      
+      Object.keys(d.gradeLevels).forEach(g => {
+        Object.keys(d.gradeLevels[g].classes).forEach(c => {
+          Object.keys(d.gradeLevels[g].classes[c].subjects || {}).forEach((subjId: string) => {
+            const subj = d.gradeLevels[g].classes[c].subjects[subjId];
+            if (subj.isFL) {
+              Object.keys(subj.languages || {}).forEach((l: string) => {
+                if (subj.languages[l].teacher === trimmedName) subj.languages[l].teacher = '';
+              });
+            } else if (subj.isArtMusic) {
+              Object.keys(subj.subSubjects || {}).forEach((s: string) => {
+                if (subj.subSubjects[s].teacher === trimmedName) subj.subSubjects[s].teacher = '';
+              });
+            } else if (subj.isElective) {
+              Object.keys(subj.electives || {}).forEach((e: string) => {
+                if (subj.electives[e].teacher === trimmedName) subj.electives[e].teacher = '';
+              });
+            } else {
+              if (subj.teacher === trimmedName) {
+                subj.teacher = '';
+              }
+            }
+          });
+        });
+      });
+      save(d);
+      addAuditLog('Teacher Management', `Deleted teacher ${trimmedName}`);
     },
     setSubjectForGradeClass: (grade, className, subjectName, sessions, teacherName, existingSubjectId) => {
       const d = structuredClone(data);
