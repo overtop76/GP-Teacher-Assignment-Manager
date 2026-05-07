@@ -3,7 +3,7 @@ import { useAppStore } from '@/lib/store';
 import { useAuthStore } from '@/lib/authStore';
 import { BadgeCheck, GraduationCap, X, Check, Edit2, FileDown, FileUp, FileJson, FileText, UserPlus, BookOpen, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { GRADE_LABELS, FL_LANGUAGES, ART_MUSIC_SUBJECTS } from '@/lib/types';
+import { GRADE_LABELS, FL_LANGUAGES, ART_MUSIC_SUBJECTS, TEACHER_MAX_SESSIONS } from '@/lib/types';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -509,6 +509,11 @@ export default function TeacherManagement() {
                  <div className={subjectType === 'elective' ? "col-span-2" : ""}>
                    <label className="block text-xs font-semibold text-slate-700 mb-1">Sessions per week</label>
                    <input type="number" min="1" max="20" value={sessions} onChange={e => setSessions(parseInt(e.target.value)||1)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20" />
+                   {sessions > (data.settings?.maxTeacherLoad || TEACHER_MAX_SESSIONS) && (
+                       <div className="text-[10px] text-rose-600 mt-1 font-bold flex items-center gap-1">
+                          <BadgeCheck className="w-3 h-3" /> Overload: {sessions} / {data.settings?.maxTeacherLoad || TEACHER_MAX_SESSIONS} 
+                       </div>
+                   )}
                  </div>
                </div>
             </div>
@@ -827,6 +832,11 @@ export default function TeacherManagement() {
                  <div className={subjectType === 'elective' ? "col-span-2" : ""}>
                    <label className="block text-xs font-semibold text-slate-700 mb-1">Sessions per week</label>
                    <input type="number" min="1" max="20" value={sessions} onChange={e => setSessions(parseInt(e.target.value)||1)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20" />
+                   {tStats && tStats.sessions + sessions > (data.settings?.maxTeacherLoad || TEACHER_MAX_SESSIONS) && (
+                       <div className="text-[10px] text-rose-600 mt-1 font-bold flex items-center gap-1">
+                          <Check className="w-3 h-3 text-rose-600" /> Overload: {tStats.sessions + sessions} / {data.settings?.maxTeacherLoad || TEACHER_MAX_SESSIONS} 
+                       </div>
+                   )}
                  </div>
                </div>
                <div className="mt-4 flex justify-end">
