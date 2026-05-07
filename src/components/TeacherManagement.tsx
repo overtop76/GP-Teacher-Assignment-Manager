@@ -355,7 +355,8 @@ export default function TeacherManagement() {
       let assigned = false;
       if (grade && cls && sessions > 0) {
          if (subjectType === 'standard' && subject.trim()) {
-            setSubjectForGradeClass(grade, cls, subject.trim(), sessions, tName, undefined);
+            const existingId = data.gradeLevels[grade]?.classes[cls]?.subjects[subject.trim()]?.id;
+            setSubjectForGradeClass(grade, cls, subject.trim(), sessions, tName, existingId);
             assigned = true;
          } else if (subjectType === 'fl' && flLanguage.trim()) {
             const existingFL = data.gradeLevels[grade]?.classes[cls]?.subjects['FL'];
@@ -509,11 +510,20 @@ export default function TeacherManagement() {
                  <div className={subjectType === 'elective' ? "col-span-2" : ""}>
                    <label className="block text-xs font-semibold text-slate-700 mb-1">Sessions per week</label>
                    <input type="number" min="1" max="20" value={sessions} onChange={e => setSessions(parseInt(e.target.value)||1)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20" />
-                   {sessions > (data.settings?.maxTeacherLoad || TEACHER_MAX_SESSIONS) && (
-                       <div className="text-[10px] text-rose-600 mt-1 font-bold flex items-center gap-1">
-                          <BadgeCheck className="w-3 h-3" /> Overload: {sessions} / {data.settings?.maxTeacherLoad || TEACHER_MAX_SESSIONS} 
-                       </div>
-                   )}
+                   {(() => {
+                       const existingCurrent = Object.values(teacherStats).find(t => t.name.toLowerCase() === name.trim().toLowerCase())?.sessions || 0;
+                       const projectedLoad = existingCurrent + sessions;
+                       const maxLoad = data.settings?.maxTeacherLoad || TEACHER_MAX_SESSIONS;
+                       return (
+                           <div className="text-[10px] mt-1 flex items-center gap-1 font-medium">
+                               {projectedLoad > maxLoad ? (
+                                   <span className="text-rose-600 font-bold flex items-center gap-1"><BadgeCheck className="w-3 h-3" /> Overload: {projectedLoad} / {maxLoad} (Current: {existingCurrent})</span>
+                               ) : (
+                                   <span className="text-slate-500">Projected Load: {projectedLoad} / {maxLoad} (Current: {existingCurrent})</span>
+                               )}
+                           </div>
+                       );
+                   })()}
                  </div>
                </div>
             </div>
@@ -583,7 +593,8 @@ export default function TeacherManagement() {
     const handleAssign = () => {
       if (grade && cls && sessions > 0) {
          if (subjectType === 'standard' && subject.trim()) {
-            setSubjectForGradeClass(grade, cls, subject.trim(), sessions, tStats.name, undefined);
+            const existingId = data.gradeLevels[grade]?.classes[cls]?.subjects[subject.trim()]?.id;
+            setSubjectForGradeClass(grade, cls, subject.trim(), sessions, tStats.name, existingId);
             toast.success('Assignment added!');
          } else if (subjectType === 'fl' && flLanguage.trim()) {
             const existingFL = data.gradeLevels[grade]?.classes[cls]?.subjects['FL'];
@@ -832,11 +843,20 @@ export default function TeacherManagement() {
                  <div className={subjectType === 'elective' ? "col-span-2" : ""}>
                    <label className="block text-xs font-semibold text-slate-700 mb-1">Sessions per week</label>
                    <input type="number" min="1" max="20" value={sessions} onChange={e => setSessions(parseInt(e.target.value)||1)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500/20" />
-                   {tStats && tStats.sessions + sessions > (data.settings?.maxTeacherLoad || TEACHER_MAX_SESSIONS) && (
-                       <div className="text-[10px] text-rose-600 mt-1 font-bold flex items-center gap-1">
-                          <Check className="w-3 h-3 text-rose-600" /> Overload: {tStats.sessions + sessions} / {data.settings?.maxTeacherLoad || TEACHER_MAX_SESSIONS} 
-                       </div>
-                   )}
+                   {(() => {
+                       const existingCurrent = tStats?.sessions || 0;
+                       const projectedLoad = existingCurrent + sessions;
+                       const maxLoad = data.settings?.maxTeacherLoad || TEACHER_MAX_SESSIONS;
+                       return (
+                           <div className="text-[10px] mt-1 flex items-center gap-1 font-medium">
+                               {projectedLoad > maxLoad ? (
+                                   <span className="text-rose-600 font-bold flex items-center gap-1"><Check className="w-3 h-3 text-rose-600" /> Overload: {projectedLoad} / {maxLoad} (Current: {existingCurrent})</span>
+                               ) : (
+                                   <span className="text-slate-500">Projected Load: {projectedLoad} / {maxLoad} (Current: {existingCurrent})</span>
+                               )}
+                           </div>
+                       );
+                   })()}
                  </div>
                </div>
                <div className="mt-4 flex justify-end">
