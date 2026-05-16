@@ -185,7 +185,7 @@ export default function AssignmentsMatrix() {
           </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex-1 overflow-auto max-h-[70vh]">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex-1 overflow-auto max-h-[70vh] matrix-scrollbar relative">
          {classListForTable.length === 0 ? (
             <div className="p-12 text-center text-slate-500">
               <UserCheck className="w-12 h-12 mx-auto mb-3 text-slate-300" />
@@ -196,12 +196,12 @@ export default function AssignmentsMatrix() {
            <table className="w-full text-left border-collapse whitespace-nowrap min-w-max">
               <thead>
                  <tr className="bg-slate-900 text-white border-b border-slate-700">
-                    <th className="px-4 py-3 font-semibold text-xs uppercase tracking-widest sticky left-0 bg-slate-900 z-20 border-r border-slate-700">
+                    <th className="px-4 py-3 font-semibold text-xs uppercase tracking-widest sticky bg-slate-900 left-0 top-0 z-30 border-r border-slate-700 shadow-[1px_1px_0_0_#334155,0_1px_0_0_#334155]">
                       Class
                     </th>
                     {uniqueSubjects.map(s => (
-                        <th key={s} className="px-4 py-3 font-medium text-xs border-r border-slate-700/50 hover:bg-slate-800 transition-colors" title={s}>
-                           <div className="truncate w-24">
+                        <th key={s} className="px-4 py-3 font-medium text-xs border-r border-slate-700/50 hover:bg-slate-800 transition-colors sticky top-0 z-20 bg-slate-900 shadow-[0_1px_0_0_#334155]" title={s}>
+                           <div className="min-w-[140px] max-w-[200px] truncate">
                              {s}
                            </div>
                         </th>
@@ -218,13 +218,13 @@ export default function AssignmentsMatrix() {
                            {uniqueSubjects.map(s => {
                                const teacher = row.subjectsData[s];
                                return (
-                                  <td key={s} className="px-4 py-2.5 border-r border-slate-100 text-slate-600 transition-colors w-32 relative">
+                               <td key={s} className="px-4 py-2.5 border-r border-slate-100 text-slate-600 transition-colors">
                                      {teacher ? (
-                                        <div className="flex items-center justify-between">
-                                          <span className="font-medium text-indigo-700 truncate w-24" title={teacher}>{teacher}</span>
+                                        <div className="flex items-center min-w-[140px] max-w-[200px]">
+                                          <span className="font-medium text-indigo-700 truncate" title={teacher}>{teacher}</span>
                                         </div>
                                      ) : (
-                                        <div className="w-24 text-slate-200 text-center">-</div>
+                                        <div className="min-w-[140px] max-w-[200px] text-slate-200 text-center">-</div>
                                      )}
                                   </td>
                                )

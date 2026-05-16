@@ -11,6 +11,22 @@
     background-color: rgba(255, 255, 255, 0.2);
     border-radius: 10px;
   }
+  .matrix-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 12px;
+  }
+  .matrix-scrollbar::-webkit-scrollbar-track {
+    background: #f8fafc;
+    border-radius: 8px;
+  }
+  .matrix-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 8px;
+    border: 2px solid #f8fafc;
+  }
+  .matrix-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8;
+  }
   .animate-in {
     animation: animate-in 0.3s ease-in-out;
   }
