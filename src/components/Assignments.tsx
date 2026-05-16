@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import React from 'react';
 import { useAppStore } from '@/lib/store';
 import { useAuthStore } from '@/lib/authStore';
@@ -248,54 +248,67 @@ export default function Assignments() {
     toast.success('Copied successfully!');
   };
 
-  const allTeachers = Object.keys(data.teachers || {}).sort();
-  const allSubjectNames = new Set<string>();
-  Object.values(data.gradeLevels).forEach((g: any) => {
-    Object.values(g.classes || {}).forEach((c: any) => {
-      Object.entries(c.subjects || {}).forEach(([s, subj]: [string, any]) => {
-         if (!['FL', 'Art/Music'].includes(s)) {
-             allSubjectNames.add(s);
-         }
-         if (subj.isElective && subj.electives) {
-             Object.keys(subj.electives).forEach(el => allSubjectNames.add(el));
-         }
+  const allTeachers = useMemo(() => Object.keys(data.teachers || {}).sort(), [data.teachers]);
+  
+  // Memoize unique subject names and teachers per subject mappings
+  const { uniqueSubjectNames, subjectTeachersMap } = useMemo(() => {
+    const allSubjectNames = new Set<string>();
+    const teacherMap: Record<string, Set<string>> = {};
+
+    Object.values(data.gradeLevels).forEach((g: any) => {
+      Object.values(g.classes || {}).forEach((c: any) => {
+        Object.entries(c.subjects || {}).forEach(([sName, subj]: [string, any]) => {
+           if (!['FL', 'Art/Music'].includes(sName)) {
+               allSubjectNames.add(sName);
+           }
+           if (subj.isElective && subj.electives) {
+               Object.keys(subj.electives).forEach(el => allSubjectNames.add(el));
+           }
+
+           // map teachers
+           if (!['FL', 'Art/Music'].includes(sName) && !subj.isElective) {
+              const target = sName.toLowerCase().trim();
+              if (!teacherMap[target]) teacherMap[target] = new Set();
+              if (subj.teacher) teacherMap[target].add(subj.teacher);
+           }
+           if (subj.isFL && subj.languages) {
+              Object.entries(subj.languages).forEach(([lang, lData]: [string, any]) => {
+                const target = lang.toLowerCase().trim();
+                if (!teacherMap[target]) teacherMap[target] = new Set();
+                if (lData.teacher) teacherMap[target].add(lData.teacher);
+              });
+           }
+           if (subj.isArtMusic && subj.subSubjects) {
+              Object.entries(subj.subSubjects).forEach(([am, amData]: [string, any]) => {
+                const target = am.toLowerCase().trim();
+                if (!teacherMap[target]) teacherMap[target] = new Set();
+                if (amData.teacher) teacherMap[target].add(amData.teacher);
+              });
+           }
+           if (subj.isElective && subj.electives) {
+              Object.entries(subj.electives).forEach(([elName, elData]: [string, any]) => {
+                const target = elName.toLowerCase().trim();
+                if (!teacherMap[target]) teacherMap[target] = new Set();
+                if (elData.teacher) teacherMap[target].add(elData.teacher);
+              });
+           }
+        });
       });
     });
-  });
-  const uniqueSubjectNames = Array.from(allSubjectNames).sort();
+
+    return {
+      uniqueSubjectNames: Array.from(allSubjectNames).sort(),
+      subjectTeachersMap: teacherMap
+    };
+  }, [data.gradeLevels]);
 
   const getFilteredTeachers = (targetSubject: string) => {
     if (!targetSubject || !targetSubject.trim()) return allTeachers;
     const target = targetSubject.toLowerCase().trim();
-    const teachers = new Set<string>();
-    
-    Object.values(data.gradeLevels).forEach((g: any) => {
-      Object.values(g.classes || {}).forEach((c: any) => {
-        Object.entries(c.subjects || {}).forEach(([sName, subj]: [string, any]) => {
-          if (!['FL', 'Art/Music'].includes(sName) && !subj.isElective) {
-             if (sName.toLowerCase().trim() === target && subj.teacher) teachers.add(subj.teacher);
-          }
-          if (subj.isFL && subj.languages) {
-             Object.entries(subj.languages).forEach(([lang, lData]: [string, any]) => {
-               if (lang.toLowerCase().trim() === target && lData.teacher) teachers.add(lData.teacher);
-             });
-          }
-          if (subj.isArtMusic && subj.subSubjects) {
-             Object.entries(subj.subSubjects).forEach(([am, amData]: [string, any]) => {
-               if (am.toLowerCase().trim() === target && amData.teacher) teachers.add(amData.teacher);
-             });
-          }
-          if (subj.isElective && subj.electives) {
-             Object.entries(subj.electives).forEach(([elName, elData]: [string, any]) => {
-               if (elName.toLowerCase().trim() === target && elData.teacher) teachers.add(elData.teacher);
-             });
-          }
-        });
-      });
-    });
-    
-    const arr = Array.from(teachers).sort();
-    return arr.length > 0 ? arr : allTeachers;
+    if (subjectTeachersMap[target] && subjectTeachersMap[target].size > 0) {
+      return Array.from(subjectTeachersMap[target]).sort();
+    }
+    return allTeachers;
   };
 
   if (visibleGrades.length === 0) {

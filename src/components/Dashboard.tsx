@@ -17,7 +17,8 @@ export default function Dashboard() {
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
-  const configuredGrades = GRADE_LABELS.filter(g => getClassesForGrade(g).length > 0).length;
+  const gradesList = data.gradesOrder || GRADE_LABELS;
+  const configuredGrades = gradesList.filter(g => getClassesForGrade(g).length > 0).length;
   
   let totalClasses = 0;
   let totalSubjects = 0;
@@ -29,10 +30,10 @@ export default function Dashboard() {
 
   const allAvailableClasses = new Set<string>();
   const allAvailableSubjects = new Set<string>();
-  GRADE_LABELS.forEach(g => {
+  gradesList.forEach(g => {
     getClassesForGrade(g).forEach(c => {
       allAvailableClasses.add(c);
-      const subjects = data.gradeLevels[g].classes[c].subjects || {};
+      const subjects = data.gradeLevels[g]?.classes[c]?.subjects || {};
       Object.entries(subjects).forEach(([sId, subj]: [string, any]) => {
         if (subj.isFL) {
            Object.keys(subj.languages || {}).forEach(langId => allAvailableSubjects.add(langId));
@@ -48,9 +49,9 @@ export default function Dashboard() {
   const uniqueClassNames = Array.from(allAvailableClasses).sort();
   const uniqueSubjects = Array.from(allAvailableSubjects).sort();
 
-  GRADE_LABELS.forEach(g => {
+  gradesList.forEach(g => {
     getClassesForGrade(g).forEach(cls => {
-      const subjects = data.gradeLevels[g].classes[cls].subjects || {};
+      const subjects = data.gradeLevels[g]?.classes[cls]?.subjects || {};
       const subjectsCount = Object.keys(subjects).length;
       const tSessions = getTotalSessionsForClass(g, cls);
       classListForTable.push({ grade: g, className: cls, subjectsCount, totalSessions: tSessions });
@@ -58,8 +59,8 @@ export default function Dashboard() {
   });
 
   const filteredGradeLabels = selectedGrades.length > 0 
-    ? GRADE_LABELS.filter(g => selectedGrades.includes(g))
-    : GRADE_LABELS;
+    ? gradesList.filter(g => selectedGrades.includes(g))
+    : gradesList;
 
   filteredGradeLabels.forEach(g => {
     const classes = getClassesForGrade(g);
@@ -70,7 +71,7 @@ export default function Dashboard() {
     
     totalClasses += filteredClasses.length;
     filteredClasses.forEach(cls => {
-      const subjects = data.gradeLevels[g].classes[cls].subjects || {};
+      const subjects = data.gradeLevels[g]?.classes[cls]?.subjects || {};
       
       let classSubjectsCount = Object.keys(subjects).length;
       // We process subjects, applying the subject filter
@@ -156,7 +157,7 @@ export default function Dashboard() {
 
   const stats = [
     { icon: <School className="w-5 h-5" />, value: data.schoolName || '—', label: 'School Name' },
-    { icon: <Library className="w-5 h-5" />, value: `${configuredGrades}/13`, label: 'Grades Configured' },
+    { icon: <Library className="w-5 h-5" />, value: `${configuredGrades}/${gradesList.length}`, label: 'Grades Configured' },
     { icon: <Users className="w-5 h-5" />, value: totalClasses, label: 'Class Sections' },
     { icon: <BookOpen className="w-5 h-5" />, value: totalSubjects, label: 'Assignments' },
     { icon: <Presentation className="w-5 h-5" />, value: totalTeachers, label: 'Unique Teachers' },
@@ -170,7 +171,7 @@ export default function Dashboard() {
   // Alerts
   classListForTable.forEach(item => {
     const { grade: g, className: cls, totalSessions: total } = item;
-    const subjects = data.gradeLevels[g].classes[cls].subjects || {};
+    const subjects = data.gradeLevels[g]?.classes[cls]?.subjects || {};
     if (Object.keys(subjects).length === 0) return;
     
     if (total > MAX_CLASS_SESSIONS) alerts.push({ type: 'danger', msg: `Grade ${g} – Class ${cls}: ${total} sessions (${total - MAX_CLASS_SESSIONS} over limit)`});
@@ -179,7 +180,8 @@ export default function Dashboard() {
 
   allTeachers.forEach(tch => {
     const total = getTeacherTotalSessions(tch);
-    if (total > TEACHER_MAX_SESSIONS) alerts.push({ type: 'danger', msg: `Teacher ${tch}: ${total} sessions (exceeds max of ${TEACHER_MAX_SESSIONS})` });
+    const maxTeacherLoad = data.teacherProfiles?.[tch]?.isHoD ? (data.settings?.maxHoDLoad || 18) : (data.settings?.maxTeacherLoad || 24);
+    if (total > maxTeacherLoad) alerts.push({ type: 'danger', msg: `Teacher ${tch}: ${total} sessions (exceeds max of ${maxTeacherLoad})` });
     else if (total < TEACHER_MIN_SESSIONS) alerts.push({ type: 'warn', msg: `Teacher ${tch}: ${total} sessions (below min of ${TEACHER_MIN_SESSIONS})` });
   });
 
@@ -203,7 +205,7 @@ export default function Dashboard() {
            <div>
               <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Filter by Grade</h3>
               <div className="flex flex-wrap gap-2">
-                 {GRADE_LABELS.map(g => {
+                 {gradesList.map(g => {
                    const isSel = selectedGrades.includes(g);
                    return (
                      <button 
