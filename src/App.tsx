@@ -3,7 +3,7 @@
  */
 import { AppProvider } from '@/lib/store';
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Settings, UserCheck, BarChart3, Search, Bell, LogOut, KeyRound, Building2, Users, GraduationCap, HelpCircle, LineChart } from 'lucide-react';
+import { LayoutDashboard, Settings, UserCheck, BarChart3, Search, Bell, LogOut, KeyRound, Building2, Users, GraduationCap, HelpCircle, LineChart, Grid } from 'lucide-react';
 import Dashboard from '@/components/Dashboard';
 import Setup from '@/components/Setup';
 import Assignments from '@/components/Assignments';
@@ -13,6 +13,7 @@ import TeacherManagement from '@/components/TeacherManagement';
 import Help from '@/components/Help';
 import Visualization from '@/components/Visualization';
 import AuditLogView from '@/components/AuditLogView';
+import AssignmentsMatrix from '@/components/AssignmentsMatrix';
 import { useAppStore } from '@/lib/store';
 import { AuthProvider, useAuthStore } from '@/lib/authStore';
 
@@ -93,6 +94,7 @@ function Sidebar({ activeTab, setActiveTab }: { activeTab: string, setActiveTab:
     { id: 'users', label: 'User Management', icon: <Users className="w-5 h-5" />, show: currentUser?.permissions.isAdmin || false },
     { id: 'teachers', label: 'Teacher Management', icon: <GraduationCap className="w-5 h-5" />, show: true },
     { id: 'assignments', label: 'Teacher Assignments', icon: <UserCheck className="w-5 h-5" />, badge: subjectCount, show: true },
+    { id: 'matrix', label: 'Assignment Matrix', icon: <Grid className="w-5 h-5" />, show: true },
     { id: 'visualization', label: 'Visualizations', icon: <LineChart className="w-5 h-5" />, show: true },
     { id: 'reports', label: 'Analytics & Reports', icon: <BarChart3 className="w-5 h-5" />, show: true },
     { id: 'audit', label: 'System Audit Log', icon: <Bell className="w-5 h-5" />, show: currentUser?.permissions.isAdmin || false },
@@ -230,6 +232,7 @@ function MainApp() {
                {activeTab === 'users' && <UsersManagement />}
                {activeTab === 'teachers' && <TeacherManagement />}
                {activeTab === 'assignments' && <Assignments />}
+               {activeTab === 'matrix' && <AssignmentsMatrix />}
                {activeTab === 'visualization' && <Visualization />}
                {activeTab === 'reports' && <Reports />}
                {activeTab === 'audit' && <AuditLogView />}
