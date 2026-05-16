@@ -9,12 +9,14 @@ import toast from 'react-hot-toast';
 export default function AssignmentsMatrix() {
   const { data, getClassesForGrade } = useAppStore();
   const [filterGrade, setFilterGrade] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [colWidth, setColWidth] = useState<number>(140);
   
   const gradesList = data.gradesOrder || GRADE_LABELS;
 
   // Aggregate all unique subjects
   const allAvailableSubjects = new Set<string>();
-  const classListForTable: { grade: string, className: string, subjectsData: Record<string, string> }[] = [];
+  const classListForTableRaw: { grade: string, className: string, subjectsData: Record<string, string> }[] = [];
 
   gradesList.forEach(g => {
     getClassesForGrade(g).forEach(c => {
@@ -61,8 +63,22 @@ export default function AssignmentsMatrix() {
           if (teacherVal) subjectsData[s] = teacherVal;
       });
       
-      classListForTable.push({ grade: g, className: c, subjectsData });
+      classListForTableRaw.push({ grade: g, className: c, subjectsData });
     });
+  });
+
+  const classListForTable = classListForTableRaw.filter(row => {
+    if (!searchQuery.trim()) return true;
+    const searchLower = searchQuery.toLowerCase();
+    // Match grade/class
+    if (row.grade.toLowerCase().includes(searchLower) || row.className.toLowerCase().includes(searchLower)) return true;
+    // Match any teacher
+    for (const s of uniqueSubjects) {
+      if (row.subjectsData[s] && row.subjectsData[s].toLowerCase().includes(searchLower)) {
+        return true;
+      }
+    }
+    return false;
   });
 
   const handleExportExcel = () => {
@@ -166,7 +182,28 @@ export default function AssignmentsMatrix() {
                ))}
              </select>
           </div>
-          <div className="flex items-center gap-4 w-full sm:w-auto justify-end">
+          <div className="flex items-center gap-3 w-full sm:w-auto border-l border-slate-200 pl-4 hidden md:flex">
+             <input 
+               type="text" 
+               placeholder="Search teacher or class..." 
+               value={searchQuery}
+               onChange={e => setSearchQuery(e.target.value)}
+               className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20"
+             />
+          </div>
+          <div className="flex items-center gap-4 hidden sm:flex border-l border-slate-200 pl-4 w-full sm:w-auto">
+             <label className="text-sm font-semibold text-slate-700">Zoom:</label>
+             <input 
+               type="range" 
+               min="80" 
+               max="300" 
+               value={colWidth}
+               onChange={e => setColWidth(Number(e.target.value))}
+               className="w-24 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 transition-all hover:accent-indigo-700" 
+               title="Adjust column width"
+             />
+          </div>
+          <div className="flex items-center gap-4 w-full sm:w-auto justify-end ms-auto">
              <div className="text-xs text-slate-500 hidden md:block">
                <span className="font-bold text-slate-700">{uniqueSubjects.length}</span> Subjects cross-referenced
              </div>
@@ -196,12 +233,12 @@ export default function AssignmentsMatrix() {
            <table className="w-full text-left border-collapse whitespace-nowrap min-w-max">
               <thead>
                  <tr className="bg-slate-900 text-white border-b border-slate-700">
-                    <th className="px-4 py-3 font-semibold text-xs uppercase tracking-widest sticky bg-slate-900 left-0 top-0 z-30 border-r border-slate-700 shadow-[1px_1px_0_0_#334155,0_1px_0_0_#334155]">
+                    <th className="px-4 py-3 font-semibold text-xs uppercase tracking-widest sticky bg-slate-900 left-0 top-0 z-30 border-r border-slate-700 shadow-[1px_1px_0_0_#334155,0_1px_0_0_#334155]" style={{ minWidth: 150 }}>
                       Class
                     </th>
                     {uniqueSubjects.map(s => (
-                        <th key={s} className="px-4 py-3 font-medium text-xs border-r border-slate-700/50 hover:bg-slate-800 transition-colors sticky top-0 z-20 bg-slate-900 shadow-[0_1px_0_0_#334155]" title={s}>
-                           <div className="min-w-[140px] max-w-[200px] truncate">
+                        <th key={s} className="px-4 py-3 font-medium text-xs border-r border-slate-700/50 hover:bg-slate-800 transition-colors sticky top-0 z-20 bg-slate-900 shadow-[0_1px_0_0_#334155]" title={s} style={{ minWidth: colWidth, maxWidth: colWidth }}>
+                           <div className="truncate" style={{ width: colWidth - 32 }}>
                              {s}
                            </div>
                         </th>
@@ -212,19 +249,19 @@ export default function AssignmentsMatrix() {
                  {classListForTable.map((row, idx) => {
                     return (
                         <tr key={`${row.grade}-${row.className}`} className="hover:bg-slate-50/80 group">
-                           <td className="px-4 py-2.5 font-bold text-slate-700 sticky left-0 bg-white border-r border-slate-200 shadow-[1px_0_0_0_#f1f5f9] group-hover:bg-slate-50 z-10 transition-colors">
+                           <td className="px-4 py-2.5 font-bold text-slate-700 sticky left-0 bg-white border-r border-slate-200 shadow-[1px_0_0_0_#f1f5f9] group-hover:bg-slate-50 z-10 transition-colors" style={{ minWidth: 150 }}>
                               Gr {row.grade} - {row.className}
                            </td>
                            {uniqueSubjects.map(s => {
                                const teacher = row.subjectsData[s];
                                return (
-                               <td key={s} className="px-4 py-2.5 border-r border-slate-100 text-slate-600 transition-colors">
+                               <td key={s} className="px-4 py-2.5 border-r border-slate-100 text-slate-600 transition-colors" style={{ minWidth: colWidth, maxWidth: colWidth }}>
                                      {teacher ? (
-                                        <div className="flex items-center min-w-[140px] max-w-[200px]">
-                                          <span className="font-medium text-indigo-700 truncate" title={teacher}>{teacher}</span>
+                                        <div className="flex items-center" style={{ width: colWidth - 32 }}>
+                                          <span className="font-medium text-indigo-700 truncate w-full" title={teacher}>{teacher}</span>
                                         </div>
                                      ) : (
-                                        <div className="min-w-[140px] max-w-[200px] text-slate-200 text-center">-</div>
+                                        <div className="text-slate-200 text-center truncate" style={{ width: colWidth - 32 }}>-</div>
                                      )}
                                   </td>
                                )

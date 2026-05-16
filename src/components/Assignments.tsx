@@ -443,13 +443,22 @@ export default function Assignments() {
         <div className="p-6 flex-1 overflow-y-auto">
         {selectedGrade && selectedClass ? (
           <>
-            <div className={`px-4 py-3 rounded-lg text-sm font-medium border mb-6 ${
-              totalSessions > MAX_CLASS_SESSIONS ? 'bg-rose-50 text-rose-700 border-rose-200' : 
-              totalSessions < MAX_CLASS_SESSIONS ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-            }`}>
-              {totalSessions > MAX_CLASS_SESSIONS ? `🔴 Total sessions: ${totalSessions} (${totalSessions - MAX_CLASS_SESSIONS} over limit)` : 
-               totalSessions < MAX_CLASS_SESSIONS ? `🟡 Total sessions: ${totalSessions} (${MAX_CLASS_SESSIONS - totalSessions} below target)` : 
-               `✅ Total sessions: ${totalSessions} — exactly at required sessions.`}
+            <div className="mb-6 px-5 py-4 rounded-xl border border-slate-200 bg-slate-50/50">
+               <div className="flex justify-between items-end mb-3">
+                 <div className="text-sm font-semibold text-slate-700">Total Sessions Assigned</div>
+                 <div className={`text-sm font-bold ${totalSessions > MAX_CLASS_SESSIONS ? 'text-rose-600' : totalSessions < MAX_CLASS_SESSIONS ? 'text-amber-600' : 'text-emerald-600'}`}>
+                   {totalSessions} / {MAX_CLASS_SESSIONS} 
+                   <span className="text-xs font-normal text-slate-500 ml-1">
+                     ({totalSessions > MAX_CLASS_SESSIONS ? `${totalSessions - MAX_CLASS_SESSIONS} over` : totalSessions < MAX_CLASS_SESSIONS ? `${MAX_CLASS_SESSIONS - totalSessions} remaining` : 'Perfect'})
+                   </span>
+                 </div>
+               </div>
+               <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden flex">
+                    <div 
+                      className={`h-full transition-all duration-500 ${totalSessions > MAX_CLASS_SESSIONS ? 'bg-rose-500' : totalSessions === MAX_CLASS_SESSIONS ? 'bg-emerald-500' : 'bg-indigo-500'}`} 
+                      style={{ width: `${Math.min(100, (totalSessions / MAX_CLASS_SESSIONS) * 100)}%` }}
+                    />
+               </div>
             </div>
 
             {Object.keys(currentSubjects).length === 0 ? (
